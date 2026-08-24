@@ -1,4 +1,4 @@
-# supernatural
+# Supernatural
 
 > 一个轻量、离线、本地优先的 Markdown 查看器与编辑器。
 > 基于 Tauri v2，使用系统原生 WebView 渲染，安装包小、内存占用低、不联网也能用。
@@ -7,7 +7,7 @@
 
 ## 它是什么
 
-supernatural 是一个把「阅读」和「写作」放在一起的 Markdown 工具：
+Supernatural 是一个把「阅读」和「写作」放在一起的 Markdown 工具：
 
 - 打开任何 `.md` 文件，即时渲染成干净的排版；
 - 按 `Ctrl+E` 进入分栏编辑，左侧写、右侧实时预览，两侧滚动同步；
@@ -37,9 +37,9 @@ npm run tauri build
 ## 启动参数
 
 ```bash
-supernatural file.md            # 打开文件
-supernatural file.md --edit     # 打开后直接进入编辑模式
-supernatural file.md --zoom=1.5 # 界面缩放
+Supernatural file.md            # 打开文件
+Supernatural file.md --edit     # 打开后直接进入编辑模式
+Supernatural file.md --zoom=1.5 # 界面缩放
 ```
 
 ## 快捷键
