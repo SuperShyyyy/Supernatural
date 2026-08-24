@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supernatural</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div id="toolbar">
+      <button id="open-btn" class="icon-btn" title="Open file (Ctrl+O)" aria-label="Open file">📂</button>
+      <button id="files-btn" class="icon-btn" title="File explorer (Ctrl+B)" aria-label="File explorer">🗂</button>
+      <button id="font-dec" class="icon-btn" title="Decrease font (Ctrl+-)" aria-label="Decrease font size">A−</button>
+      <button id="font-inc" class="icon-btn" title="Increase font (Ctrl++)" aria-label="Increase font size">A+</button>
+      <button id="wide-toggle" class="icon-btn" title="宽版 / 窄版切换 (Ctrl+Shift+\)" aria-label="Toggle wide content">↔</button>
+      <button id="theme-toggle" class="icon-btn" title="主题：跟随系统（点击切换）" aria-label="Toggle color theme">🖥️</button>
+      <button id="settings-btn" class="icon-btn" title="设置" aria-label="Settings">⚙</button>
+      <button id="save-btn" title="Save (Ctrl+S)" aria-label="Save" hidden>💾 Save</button>
+      <button id="export-btn" title="Export to HTML" aria-label="Export to HTML">⬇ HTML</button>
+      <button id="edit-toggle" title="Toggle edit mode (Ctrl+E)" aria-label="Toggle edit mode">✎ Edit</button>
+      <button id="toc-toggle" title="Toggle outline (Ctrl+\)" aria-label="Toggle outline">☰</button>
+      <button id="close-doc-btn" class="icon-btn" title="Close document — back to home" aria-label="Close document" hidden>✕</button>
+    </div>
+    <div id="toast" hidden></div>
+    <div id="find-bar" hidden>
+      <input id="find-input" aria-label="查找" type="text" placeholder="查找…" spellcheck="false" />
+      <span id="find-count"></span>
+      <button id="find-prev" title="Previous (Shift+Enter)" aria-label="Previous match">↑</button>
+      <button id="find-next" title="Next (Enter)" aria-label="Next match">↓</button>
+      <button id="find-close" title="Close (Esc)" aria-label="Close find">✕</button>
+    </div>
+    <div id="layout">
+      <nav id="files" aria-label="File explorer"></nav>
+      <nav id="toc" aria-label="Table of contents"></nav>
+      <textarea
+        id="editor"
+        spellcheck="false"
+        placeholder="Markdown source…"
+      ></textarea>
+      <article id="content" class="markdown-body">
+        <div class="empty-state">
+          <h1>Supernatural</h1>
+          <p>将 <code>.md</code> 文件拖到这里，或<a id="empty-open" href="#">打开一个</a>。</p>
+          <p class="app-version"><a id="about-open" href="#">关于 / About</a></p>
+          <div id="recent-list"></div>
+        </div>
+      </article>
+    </div>
+
+    <div id="diagram-modal" hidden role="dialog" aria-modal="true" aria-label="图表查看器">
+      <div id="diagram-toolbar">
+        <button id="dg-zoomout" title="Zoom out">−</button>
+        <span id="dg-zoom">100%</span>
+        <button id="dg-zoomin" title="Zoom in">+</button>
+        <button id="dg-reset" title="Fit to screen">Reset</button>
+        <button id="dg-close" title="Close (Esc)">✕</button>
+      </div>
+      <div id="diagram-stage"></div>
+    </div>
+
+    <div id="settings-modal" hidden role="dialog" aria-modal="true" aria-label="设置">
+      <div class="modal-box settings-box">
+        <div class="settings-title">设置 / Settings</div>
+        <div class="settings-row">
+          <label for="font-latin">英文字体 / Latin font</label>
+          <select id="font-latin"></select>
+        </div>
+        <input id="font-latin-custom" class="font-custom" list="font-list" placeholder="输入字体名称…" spellcheck="false" autocomplete="off" hidden />
+        <div class="settings-row">
+          <label for="font-cjk">中文字体 / CJK font</label>
+          <select id="font-cjk"></select>
+        </div>
+        <input id="font-cjk-custom" class="font-custom" list="font-list" placeholder="输入字体名称…" spellcheck="false" autocomplete="off" hidden />
+        <datalist id="font-list"></datalist>
+        <p class="settings-preview" id="font-preview">
+          The quick brown fox — 敏捷的棕色狐狸 0123
+        </p>
+
+        <div class="modal-actions">
+          <button id="settings-reset">重置字体</button>
+          <button id="settings-close">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="about-modal" hidden role="dialog" aria-modal="true" aria-label="关于">
+      <div class="modal-box about-box">
+        <div class="about-logo">📘</div>
+        <div class="about-name">Supernatural</div>
+        <div class="about-ver" id="about-version"></div>
+        <div class="modal-actions">
+          <button id="about-close">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="close-modal" hidden role="dialog" aria-modal="true" aria-label="未保存更改确认">
+      <div class="modal-box">
+        <p>有未保存的更改，要在关闭前保存吗？</p>
+        <div class="modal-actions">
+          <button id="modal-save">保存并关闭</button>
+          <button id="modal-discard">不保存关闭</button>
+          <button id="modal-cancel">取消</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

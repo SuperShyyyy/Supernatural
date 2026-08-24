@@ -1,0 +1,68 @@
+# supernatural
+
+> 一个轻量、离线、本地优先的 Markdown 查看器与编辑器。
+> 基于 Tauri v2，使用系统原生 WebView 渲染，安装包小、内存占用低、不联网也能用。
+
+---
+
+## 它是什么
+
+supernatural 是一个把「阅读」和「写作」放在一起的 Markdown 工具：
+
+- 打开任何 `.md` 文件，即时渲染成干净的排版；
+- 按 `Ctrl+E` 进入分栏编辑，左侧写、右侧实时预览，两侧滚动同步；
+- 需要分享时，一键导出为单文件 HTML，带目录和代码高亮。
+
+## 功能一览
+
+| 类别 | 能力 |
+| --- | --- |
+| 渲染 | GFM 表格、任务列表、删除线、代码高亮（highlight.js） |
+| 图表 | Mermaid 按需懒加载，点击可缩放 / 平移查看 |
+| 导航 | 自动目录大纲，滚动高亮当前章节，`Ctrl+\` 折叠 |
+| 编辑 | 分栏实时预览、双向滚动同步、`Ctrl+S` 保存 |
+| 文件 | 拖放打开、打开对话框、最近打开列表、目录浏览 |
+| 其他 | 文档内查找、YAML front matter 卡片、本地图片、深色 / 浅色主题 |
+
+## 快速开始
+
+```bash
+# 构建（需要 Node.js 与 Rust 工具链）
+npm install
+npm run tauri build
+```
+
+产物位于 `src-tauri/target/release/bundle/`。
+
+## 启动参数
+
+```bash
+supernatural file.md            # 打开文件
+supernatural file.md --edit     # 打开后直接进入编辑模式
+supernatural file.md --zoom=1.5 # 界面缩放
+```
+
+## 快捷键
+
+| 快捷键 | 功能 |
+| --- | --- |
+| `Ctrl+O` | 打开文件 |
+| `Ctrl+F` | 文档内查找 |
+| `Ctrl+E` | 切换编辑 / 预览 |
+| `Ctrl+S` | 保存 |
+| `Ctrl+\` | 折叠 / 展开目录 |
+| `Ctrl++` / `Ctrl+-` | 字号放大 / 缩小 |
+
+## 安全
+
+渲染结果会经过 DOMPurify 清洗并配合严格 CSP，打开不受信任的文档不会执行其中的脚本；所有处理都在本地完成，无遥测、无云端。
+
+## 开发
+
+```bash
+npm run tauri dev
+```
+
+## 许可证
+
+MIT

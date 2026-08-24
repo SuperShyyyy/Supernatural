@@ -1,0 +1,921 @@
+:root,
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --code-bg: #f6f8fa;
+  --accent: #0969da;
+  --table-stripe: #f6f8fa;
+}
+
+/* System dark mode — applies in "follow system" mode (and before JS runs). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --muted: #9198a1;
+    --border: #30363d;
+    --code-bg: #161b22;
+    --accent: #2f81f7;
+    --table-stripe: #161b22;
+  }
+}
+
+/* Explicit user choice wins over the system setting (higher specificity). */
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #9198a1;
+  --border: #30363d;
+  --code-bg: #161b22;
+  --accent: #2f81f7;
+  --table-stripe: #161b22;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ---------- Layout + TOC sidebar ---------- */
+#layout {
+  display: flex;
+  align-items: stretch;
+  height: 100vh;
+}
+
+#toc {
+  display: none;
+  flex: 0 0 264px;
+  width: 264px;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 24px 12px 40px;
+  border-right: 1px solid var(--border);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+#layout.has-toc:not(.toc-collapsed) #toc {
+  display: block;
+}
+
+#toc .toc-link {
+  display: block;
+  padding: 3px 10px;
+  margin: 1px 0;
+  color: var(--muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 4px 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#toc .toc-link:hover {
+  color: var(--fg);
+  background: var(--code-bg);
+}
+#toc .toc-link.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--code-bg);
+}
+#toc .toc-h1 {
+  font-weight: 600;
+}
+#toc .toc-h2 {
+  padding-left: 22px;
+}
+#toc .toc-h3 {
+  padding-left: 34px;
+  font-size: 13px;
+}
+
+/* ---------- File explorer panel ---------- */
+#files {
+  display: none;
+  flex: 0 0 240px;
+  width: 240px;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 12px 8px 40px;
+  border-right: 1px solid var(--border);
+  font-size: 13.5px;
+}
+#layout.files-open #files {
+  display: block;
+}
+.files-head {
+  padding: 4px 10px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.files-hint {
+  padding: 16px 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.files-path {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--fg);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  outline: none;
+}
+.files-path:focus {
+  border-color: var(--accent);
+}
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.file-item:hover {
+  background: var(--code-bg);
+}
+.file-item.active {
+  background: var(--code-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+.file-item.muted {
+  color: var(--muted);
+}
+.file-item .fi-icon {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+.file-item .fi-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 160px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.ctx-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.ctx-menu button:hover {
+  background: var(--code-bg);
+}
+
+#toolbar {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: calc(100vw - 24px);
+}
+button:focus,
+button:focus-visible {
+  outline: none;
+}
+#toolbar button {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+#toolbar button:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+#toc-toggle {
+  width: 32px;
+  padding: 0;
+  font-size: 15px;
+}
+#toolbar .icon-btn {
+  width: 36px;
+  padding: 0;
+  font-weight: 600;
+}
+
+/* ---------- Editor (live edit + preview) ---------- */
+#editor {
+  display: none;
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 32px 28px 80px;
+  border: none;
+  border-right: 1px solid var(--border);
+  resize: none;
+  outline: none;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: calc(14px * var(--content-scale, 1));
+  line-height: 1.6;
+  tab-size: 2;
+}
+#layout.mode-edit #editor {
+  display: block;
+}
+/* In edit mode the preview fills its half (no centered max-width). */
+#layout.mode-edit .markdown-body {
+  margin: 0;
+  max-width: none;
+}
+
+/* Wide mode: let reading content fill the available width instead of the
+   centered 860px column (useful for wide tables on large screens). */
+#layout.wide-content .markdown-body {
+  max-width: none;
+}
+#wide-toggle.on {
+  color: var(--accent);
+}
+
+/* ---------- YAML front-matter card ---------- */
+.markdown-body .fm-card {
+  margin: 0 0 2em;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--code-bg);
+}
+.fm-card .fm-title {
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.fm-card .fm-desc {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.fm-card .fm-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.fm-card .fm-chip {
+  font-size: 12.5px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.fm-card .fm-tag {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.fm-card .fm-badge {
+  background: #d98324;
+  border-color: #d98324;
+  color: #fff;
+  font-weight: 600;
+}
+:root[data-theme="dark"] .fm-card .fm-badge {
+  background: #a16207;
+  border-color: #a16207;
+}
+.fm-card .fm-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 13.5px;
+}
+.fm-card .fm-dl dt {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.fm-card .fm-dl dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+/* ---------- Find bar ---------- */
+#find-bar {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+#find-bar[hidden] {
+  display: none;
+}
+#find-input {
+  width: 200px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  padding: 2px 4px;
+}
+#find-count {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 44px;
+  text-align: center;
+}
+#find-bar button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+#find-bar button:hover {
+  background: var(--code-bg);
+  color: var(--fg);
+}
+
+/* ---------- Recent files (empty state) ---------- */
+.empty-state a {
+  color: var(--accent);
+}
+#recent-list {
+  margin: 28px auto 0;
+  max-width: 460px;
+  text-align: left;
+}
+#recent-list h3 {
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  border: none;
+  padding: 0;
+}
+.recent-item {
+  display: block;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  text-decoration: none;
+  color: var(--fg) !important;
+}
+.recent-item:hover {
+  background: var(--code-bg);
+  border-color: var(--accent);
+}
+.recent-item .rf-name {
+  display: block;
+  font-weight: 600;
+}
+.recent-item .rf-path {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 13.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+#toast[hidden] {
+  display: none;
+}
+
+/* ---------- Mermaid diagram lightbox ---------- */
+.markdown-body pre.mermaid.mermaid-zoomable {
+  cursor: zoom-in;
+}
+#diagram-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.82);
+}
+#diagram-modal[hidden] {
+  display: none;
+}
+#diagram-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+}
+#diagram-stage.grabbing {
+  cursor: grabbing;
+}
+#diagram-stage .dg-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  background: var(--bg);
+  padding: 20px;
+  border-radius: 10px;
+  display: inline-block;
+}
+#diagram-stage .dg-card svg {
+  display: block;
+  max-width: none;
+}
+#diagram-toolbar {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+#diagram-toolbar button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 15px;
+  cursor: pointer;
+}
+#diagram-toolbar button:hover {
+  border-color: var(--accent);
+}
+#dg-zoom {
+  min-width: 52px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- About dialog ---------- */
+.empty-state .app-version {
+  margin-top: 10px;
+  font-size: 13px;
+}
+#about-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+#about-modal[hidden] {
+  display: none;
+}
+.about-box {
+  text-align: center;
+}
+.about-logo {
+  font-size: 44px;
+  line-height: 1;
+}
+.about-name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+.about-ver {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  margin-top: 2px;
+}
+.about-desc {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 14px 0 18px;
+}
+.about-box .modal-actions {
+  justify-content: center;
+}
+#about-github {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ---------- Settings dialog ---------- */
+#settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+#settings-modal[hidden] {
+  display: none;
+}
+.settings-box {
+  width: 380px;
+  max-width: 90vw;
+}
+.settings-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.settings-row label {
+  color: var(--muted);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.settings-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+.font-custom {
+  width: 100%;
+  margin: -4px 0 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.settings-preview {
+  margin: 6px 0 18px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  font-family: var(--reading-font, inherit);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.settings-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0 14px;
+}
+
+
+/* ---------- Unsaved-changes close dialog ---------- */
+#close-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+#close-modal[hidden] {
+  display: none;
+}
+.modal-box {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+  max-width: 360px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+.modal-box p {
+  margin: 0 0 18px;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.modal-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+#modal-save {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.modal-actions button:hover {
+  filter: brightness(1.08);
+}
+
+.markdown-body {
+  /* Reading font is user-configurable (Settings); falls back to the default
+     stack. Code blocks / editor keep their own monospace rules. */
+  font-family: var(
+    --reading-font,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans",
+    Helvetica,
+    Arial,
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji"
+  );
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  max-width: 860px;
+  margin: 0 auto;
+  /* Large bottom padding so any heading (even the last) can scroll to the top
+     when clicked in the outline. */
+  padding: 32px 40px 80vh;
+  word-wrap: break-word;
+  font-size: calc(16px * var(--content-scale, 1));
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--muted);
+  margin-top: 18vh;
+}
+
+.markdown-body h1,
+.markdown-body h2 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body code {
+  background: var(--code-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+.markdown-body pre {
+  background: var(--code-bg);
+  padding: 16px;
+  border-radius: 8px;
+  overflow: auto;
+  line-height: 1.45;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 90%;
+}
+
+/* Copy-to-clipboard button on code blocks */
+.markdown-body pre.has-copy {
+  position: relative;
+}
+.markdown-body pre .copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 7px;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.markdown-body pre.has-copy:hover .copy-btn,
+.markdown-body pre .copy-btn:focus-visible {
+  opacity: 1;
+}
+.markdown-body pre .copy-btn:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+.markdown-body pre .copy-btn.copied {
+  opacity: 1;
+  color: #1a7f37;
+  border-color: #1a7f37;
+}
+
+.markdown-body blockquote {
+  margin: 0;
+  padding: 0 1em;
+  color: var(--muted);
+  border-left: 4px solid var(--border);
+}
+
+/* Horizontal-scroll wrapper (added around every table at render time). */
+.markdown-body .md-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 1em 0;
+}
+.markdown-body table {
+  border-collapse: collapse;
+  width: max-content;
+  max-width: 100%;
+  margin: 1em 0;
+}
+.markdown-body .md-table-wrap > table {
+  margin: 0;
+}
+/* Once a column has been dragged, the table switches to a fixed layout so the
+   explicit <col> widths are honoured (and can be narrowed below content size). */
+.markdown-body table.resizable {
+  table-layout: fixed;
+  max-width: none;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 13px;
+  overflow-wrap: break-word;
+}
+.markdown-body th.has-resizer {
+  position: relative;
+}
+/* Drag handle straddling the header cell's right border. */
+.markdown-body .col-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
+}
+.markdown-body .col-resizer:hover {
+  background: var(--accent);
+  opacity: 0.35;
+}
+body.col-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.col-resizing * {
+  cursor: col-resize !important;
+}
+.markdown-body tr:nth-child(2n) {
+  background: var(--table-stripe);
+}
+
+.markdown-body img {
+  max-width: 100%;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.6em 0;
+}
+
+/* GFM task lists */
+.markdown-body .task-list-item {
+  list-style: none;
+}
+.markdown-body .task-list-item input {
+  margin: 0 0.4em 0.25em -1.4em;
+}
+
+/* Mermaid diagrams */
+.markdown-body pre.mermaid {
+  background: transparent;
+  text-align: center;
+  padding: 8px 0;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+  border: 3px solid var(--bg);
+}
