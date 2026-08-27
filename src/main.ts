@@ -550,7 +550,15 @@ async function openFile(
     currentText = text;
     dirty = false;
     addRecent(path);
-    if (editMode) editor.value = text;
+    if (editMode) {
+      // Assigning .value resets the textarea's scroll and caret to the top —
+      // keep the user's viewport (clamped to the new text length) instead.
+      const st = editor.scrollTop;
+      const pos = Math.min(editor.selectionStart, text.length);
+      editor.value = text;
+      editor.scrollTop = st;
+      editor.setSelectionRange(pos, pos);
+    }
     setTitle();
     await renderMarkdown(text, preserveScroll);
     if (watch) {
@@ -586,11 +594,20 @@ function schedulePreview(): void {
 }
 
 function setEditMode(on: boolean): void {
+  // A deliberate mode toggle ends the caret-snap watch: the editor mirror
+  // below scrolls the textarea on purpose and must never be "reverted".
+  snapWatchUntil = 0;
   // Capture the preview's scroll fraction BEFORE flipping the layout class:
   // toggling .mode-edit resizes the preview column, and any offset read after
-  // the toggle refers to an already-reflowed (wrong) geometry.
+  // the toggle refers to an already-reflowed (wrong) geometry. The editor and
+  // preview are kept ratio-synced, so if the two disagree beyond sync
+  // tolerance the preview's offset is stale (a caret-reveal / render race
+  // dragged it mid-frame) — trust the editor, which is where the user is.
+  const eMax = editor.scrollHeight - editor.clientHeight;
+  const eFrac = eMax > 0 ? editor.scrollTop / eMax : 0;
   const max = content.scrollHeight - content.clientHeight;
-  const frac = max > 0 ? content.scrollTop / max : 0;
+  let frac = max > 0 ? content.scrollTop / max : 0;
+  if (editMode && Math.abs(eFrac - frac) > 0.2) frac = eFrac;
   editMode = on;
   layout.classList.toggle("mode-edit", on);
   editToggle.textContent = on ? "👁 预览" : "✎ 编辑";
@@ -612,12 +629,16 @@ function setEditMode(on: boolean): void {
     // Mirror the scroll silently: register the echo first so the programmatic
     // write doesn't bounce straight back into the scroll-sync logic.
     syncEcho.add(editor);
-    editor.scrollTop = frac * (editor.scrollHeight - editor.clientHeight);
+    const eSpan = editor.scrollHeight - editor.clientHeight;
+    editor.scrollTop = frac * eSpan;
     // The preview column just got narrower and reflowed taller — re-anchor it
-    // at the same fraction, or it silently drifts away from the caret.
+    // to the editor's actual landing fraction (the mirror write above is the
+    // single source of truth), or the two panes can drift apart in a race
+    // with a pending re-render.
+    const anchorFrac = eSpan > 0 ? editor.scrollTop / eSpan : frac;
     syncEcho.add(content);
     const maxNarrow = content.scrollHeight - content.clientHeight;
-    content.scrollTop = frac * maxNarrow;
+    content.scrollTop = anchorFrac * maxNarrow;
   } else {
     // Leaving edit mode: render the latest source at the captured position.
     window.clearTimeout(previewTimer);
@@ -662,31 +683,43 @@ editToggle.addEventListener("click", toggleEdit);
 // jump to a far-away caret and gets reverted, so the view stays put (the edit
 // itself still lands at the caret, exactly like VSCode).
 let preInputScroll = 0;
-let preInputContentFrac = 0;
+let snapWatchUntil = 0;
 editor.addEventListener("beforeinput", () => {
   preInputScroll = editor.scrollTop;
-  const max = content.scrollHeight - content.clientHeight;
-  preInputContentFrac = max > 0 ? content.scrollTop / max : 0;
 });
+// Native textareas scroll the caret into view on every edit. When the caret
+// is scrolled far out of sight (the user wheel-scrolled elsewhere to read),
+// that yanks the editor back to the caret and scroll-sync drags the preview
+// along — the text they were looking at disappears. Undo the jump instead
+// (VSCode behaves the same): the edit still lands at the caret, off-screen.
+// The reveal can land asynchronously — even animated, frame by frame — so
+// watch the editor's scroll events for a short window after each input and
+// revert any single jump bigger than a legitimate at-the-edge reveal. Small
+// deltas are adopted as the new baseline, so genuine user scrolling right
+// after typing is never fought.
 function revertCaretSnap(): void {
   if (Math.abs(editor.scrollTop - preInputScroll) <= editor.clientHeight * 0.25) {
+    // Small move (normal reveal / user wheel): adopt it as the new baseline.
+    preInputScroll = editor.scrollTop;
     return;
   }
   syncEcho.add(editor); // restore silently — don't drag the preview along
   editor.scrollTop = preInputScroll;
   // The reveal's scroll event already dragged the preview via scroll-sync
-  // before this revert ran — re-anchor it at the pre-edit fraction too.
-  const max = content.scrollHeight - content.clientHeight;
+  // before this revert ran — re-anchor it at the same fraction as the editor.
+  const eMax = editor.scrollHeight - editor.clientHeight;
+  const frac = eMax > 0 ? editor.scrollTop / eMax : 0;
+  const cMax = content.scrollHeight - content.clientHeight;
   syncEcho.add(content);
-  content.scrollTop = preInputContentFrac * max;
+  content.scrollTop = frac * cMax;
 }
+editor.addEventListener("scroll", () => {
+  if (Date.now() < snapWatchUntil) revertCaretSnap();
+});
 editor.addEventListener("input", () => {
   schedulePreview();
-  // The reveal scroll is part of the edit's default action, applied after the
-  // input listeners run — so check again on the next frames before giving up.
+  snapWatchUntil = Date.now() + 400;
   revertCaretSnap();
-  requestAnimationFrame(revertCaretSnap);
-  window.setTimeout(revertCaretSnap, 50);
 });
 saveBtn.addEventListener("click", () => void save());
 
