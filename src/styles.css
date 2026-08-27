@@ -727,6 +727,9 @@ button:focus-visible {
   min-width: 0;
   height: 100vh;
   overflow-y: auto;
+  /* Browser scroll-anchoring must not fight the app's own fractional
+     restoration after re-renders / mode switches. */
+  overflow-anchor: none;
   max-width: 860px;
   margin: 0 auto;
   /* Large bottom padding so any heading (even the last) can scroll to the top

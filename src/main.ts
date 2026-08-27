@@ -596,6 +596,9 @@ async function openFile(
       editor.scrollTop = st;
       editor.setSelectionRange(pos, pos);
       dbg("openfile.editKeepView", { keptTop: st });
+      // Same post-write reveal guard as setEditMode(true).
+      preInputScroll = editor.scrollTop;
+      snapWatchUntil = Date.now() + 300;
     }
     setTitle();
     await renderMarkdown(text, preserveScroll);
@@ -678,6 +681,12 @@ function setEditMode(on: boolean): void {
     syncEcho.add(content);
     const maxNarrow = content.scrollHeight - content.clientHeight;
     content.scrollTop = anchorFrac * maxNarrow;
+    // Guard the mirror: focus()/setSelectionRange() above can trigger
+    // WebKit's caret reveal AFTER these writes — it fires scroll events but
+    // no input event, so the input-armed watch never sees it. Hold the landed
+    // position briefly; any late pull back toward the caret gets reverted.
+    preInputScroll = editor.scrollTop;
+    snapWatchUntil = Date.now() + 300;
     dbg("mode.enter.anchored", {
       frac: +frac.toFixed(4),
       caretPos: pos,
