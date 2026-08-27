@@ -468,6 +468,7 @@ async function renderMarkdown(
   text: string,
   preserveScroll = false,
   scrollFrac?: number,
+  anchorLine?: number,
 ): Promise<void> {
   // A newer render supersedes this one: every `await` below re-checks the
   // token so a slow (mermaid / front-matter) render can never clobber the
@@ -530,11 +531,19 @@ async function renderMarkdown(
     // New documents start at the top; only hot-reload / live-edit keep position.
     const maxAfter = content.scrollHeight - content.clientHeight;
     content.scrollTop = preserveScroll ? fracBefore * maxAfter : 0;
+    // Re-map the fresh DOM, then pin the exact source line the editor was
+    // showing (line anchors survive reflow; fractions drift when blocks
+    // re-wrap at the new column width).
+    buildPreviewMap(text);
+    if (preserveScroll && anchorLine !== undefined && pvLineTop) {
+      content.scrollTop = pvLineTop[Math.min(anchorLine, pvLineTop.length - 1)];
+    }
     dbg("render.restored", {
       seq,
       frac: +fracBefore.toFixed(4),
       maxBefore,
       maxAfter,
+      line: anchorLine ?? -1,
     });
   } finally {
     // Keep sync paused until the scroll event queued by the restore above has
@@ -631,7 +640,15 @@ function schedulePreview(): void {
     // would re-render mid-transition with a clamped (≈0) scroll offset and
     // fling the preview to the top of the document.
     if (!editMode) return;
-    void renderMarkdown(editor.value, true);
+    // Pin the re-render to the line currently at the top of the editor, so
+    // live-preview refreshes never drift the view while typing.
+    const line = edLineTops ? edLineAtY(editor.scrollTop) : -1;
+    void renderMarkdown(
+      editor.value,
+      true,
+      undefined,
+      line >= 0 ? line : undefined,
+    );
   }, 180);
 }
 
@@ -651,6 +668,14 @@ function setEditMode(on: boolean): void {
   const max = content.scrollHeight - content.clientHeight;
   let frac = max > 0 ? content.scrollTop / max : 0;
   if (editMode && Math.abs(eFrac - frac) > 0.2) frac = eFrac;
+  // Capture the editor's source line BEFORE the layout toggle below: flipping
+  // .mode-edit hides the textarea (offsetParent === null), after which the
+  // editor map can't be built and the exit anchor would fall back to a fraction.
+  let exitLine = -1;
+  if (!on && editMode) {
+    buildEditorMap();
+    if (edLineTops) exitLine = edLineAtY(editor.scrollTop);
+  }
   editMode = on;
   layout.classList.toggle("mode-edit", on);
   editToggle.textContent = on ? "👁 预览" : "✎ 编辑";
@@ -659,29 +684,45 @@ function setEditMode(on: boolean): void {
     // otherwise entering edit mode would wipe the user's unsaved buffer
     // (worst case: a freshly-opened empty file loses everything typed).
     if (!dirty && editor.value !== currentText) editor.value = currentText;
-    // Start the editor where the preview currently is, so the text the user
-    // was reading stays in view instead of jumping back to the very top.
-    let pos = Math.round(frac * editor.value.length);
-    if (pos > 0) {
-      // Snap to the start of a line so the caret lands on real text.
-      const nl = editor.value.lastIndexOf("\n", pos);
-      pos = nl === -1 ? 0 : nl + 1;
+    // Anchor by source line: the preview currently shows line L; put line L
+    // at the top of the editor. Fractions drift when the layout re-wraps at
+    // the new column width — lines don't.
+    ensureMaps();
+    const anchorLine = pvLineTop ? pvLineAtY(content.scrollTop) : -1;
+    let pos: number;
+    if (anchorLine >= 0 && edLineStart.length > 0) {
+      pos = edLineStart[Math.min(anchorLine, edLineStart.length - 1)];
+    } else {
+      pos = Math.round(frac * editor.value.length);
+      if (pos > 0) {
+        const nl = editor.value.lastIndexOf("\n", pos);
+        pos = nl === -1 ? 0 : nl + 1;
+      }
     }
     editor.focus();
     editor.setSelectionRange(pos, pos);
     // Mirror the scroll silently: register the echo first so the programmatic
     // write doesn't bounce straight back into the scroll-sync logic.
     syncEcho.add(editor);
-    const eSpan = editor.scrollHeight - editor.clientHeight;
-    editor.scrollTop = frac * eSpan;
-    // The preview column just got narrower and reflowed taller — re-anchor it
-    // to the editor's actual landing fraction (the mirror write above is the
-    // single source of truth), or the two panes can drift apart in a race
-    // with a pending re-render.
-    const anchorFrac = eSpan > 0 ? editor.scrollTop / eSpan : frac;
+    buildEditorMap();
+    if (edLineTops && anchorLine >= 0) {
+      editor.scrollTop =
+        edLineTops[Math.min(anchorLine, edLineTops.length - 1)];
+    } else {
+      const eSpan = editor.scrollHeight - editor.clientHeight;
+      editor.scrollTop = frac * eSpan;
+    }
+    // The preview just reflowed narrower/taller — re-anchor it to the line
+    // the editor actually landed on (single source of truth).
+    const landedLine = edLineTops ? edLineAtY(editor.scrollTop) : anchorLine;
     syncEcho.add(content);
-    const maxNarrow = content.scrollHeight - content.clientHeight;
-    content.scrollTop = anchorFrac * maxNarrow;
+    buildPreviewMap(editor.value);
+    if (pvLineTop && landedLine >= 0) {
+      content.scrollTop = pvLineTop[Math.min(landedLine, pvLineTop.length - 1)];
+    } else {
+      const maxNarrow = content.scrollHeight - content.clientHeight;
+      content.scrollTop = frac * maxNarrow;
+    }
     // Guard the mirror: focus()/setSelectionRange() above can trigger
     // WebKit's caret reveal AFTER these writes — it fires scroll events but
     // no input event, so the input-armed watch never sees it. Hold the landed
@@ -691,13 +732,19 @@ function setEditMode(on: boolean): void {
     dbg("mode.enter.anchored", {
       frac: +frac.toFixed(4),
       caretPos: pos,
-      anchorFrac: +anchorFrac.toFixed(4),
+      line: landedLine,
     });
   } else {
-    // Leaving edit mode: render the latest source at the captured position.
+    // Leaving edit mode: render the latest source, pinned to the exact line
+    // the editor was showing (captured before the layout toggle above).
     window.clearTimeout(previewTimer);
-    dbg("mode.exit.render", { frac: +frac.toFixed(4) });
-    void renderMarkdown(editor.value, true, frac);
+    dbg("mode.exit.render", { frac: +frac.toFixed(4), line: exitLine });
+    void renderMarkdown(
+      editor.value,
+      true,
+      frac,
+      exitLine >= 0 ? exitLine : undefined,
+    );
   }
   setTitle();
 }
@@ -768,12 +815,19 @@ function revertCaretSnap(src: string): void {
   syncEcho.add(editor); // restore silently — don't drag the preview along
   editor.scrollTop = preInputScroll;
   // The reveal's scroll event already dragged the preview via scroll-sync
-  // before this revert ran — re-anchor it at the same fraction as the editor.
-  const eMax = editor.scrollHeight - editor.clientHeight;
-  const frac = eMax > 0 ? editor.scrollTop / eMax : 0;
-  const cMax = content.scrollHeight - content.clientHeight;
+  // before this revert ran — re-anchor it to the line the editor keeps
+  // showing (fraction fallback while the maps are unavailable).
+  ensureMaps();
   syncEcho.add(content);
-  content.scrollTop = frac * cMax;
+  if (edLineTops && pvLineTop) {
+    const line = edLineAtY(preInputScroll);
+    content.scrollTop = pvLineTop[Math.min(line, pvLineTop.length - 1)];
+  } else {
+    const eMax = editor.scrollHeight - editor.clientHeight;
+    const frac = eMax > 0 ? editor.scrollTop / eMax : 0;
+    const cMax = content.scrollHeight - content.clientHeight;
+    content.scrollTop = frac * cMax;
+  }
 }
 editor.addEventListener("scroll", () => {
   if (Date.now() < snapWatchUntil) revertCaretSnap("scroll");
@@ -922,6 +976,166 @@ exportBtn.addEventListener("click", () => void exportHtml());
 // echo per programmatic write instead of relying on rAF timing.
 const syncEcho = new Set<HTMLElement>();
 let previewRendering = false;
+
+// ---------- Line-anchored sync ----------
+// Fraction-based sync keeps both panes at the same *percentage* of their
+// scroll spans, but the panes lay the source out at different densities —
+// headings and cards render tall, and narrower columns soft-wrap lines into
+// more rows — so the same fraction lands on different *source lines*. With a
+// narrow window the left pane can sit at lines 13–15 while the preview shows
+// lines 9–12. These maps translate positions between the panes by source
+// line, so both always show the same lines; the fraction math remains only
+// as a fallback until the maps are ready.
+let edLineTops: number[] | null = null; // source line -> y in editor scroll content
+let edLineStart: number[] = []; // source line -> char offset in editor.value
+let pvLineTop: number[] | null = null; // source line -> y in preview scroll content
+let lastRenderedText = "";
+let lastMapSig = "";
+const lineMirror = document.createElement("div");
+lineMirror.setAttribute("aria-hidden", "true");
+lineMirror.style.cssText =
+  "position:absolute;left:-99999px;top:0;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;";
+document.body.appendChild(lineMirror);
+
+function paneSig(): string {
+  const cs = getComputedStyle(editor);
+  return `${editor.value.length}|${editor.clientWidth}|${cs.fontSize}|${content.clientWidth}`;
+}
+
+function markMapsStale(): void {
+  lastMapSig = "";
+}
+
+// Y offsets of every source line inside the editor. The textarea soft-wraps,
+// so line positions are measured in a mirror div styled identically to the
+// textarea's text area (a wrapped line occupies several rows; a linear
+// scrollTop/lineHeight model would be wrong).
+function buildEditorMap(): void {
+  if (editor.offsetParent === null) {
+    edLineTops = null; // hidden (preview mode) — rebuilt on entering edit
+    return;
+  }
+  const cs = getComputedStyle(editor);
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
+  const padT = parseFloat(cs.paddingTop) || 0;
+  lineMirror.style.font = cs.font;
+  lineMirror.style.lineHeight = cs.lineHeight;
+  lineMirror.style.letterSpacing = cs.letterSpacing;
+  lineMirror.style.tabSize = cs.tabSize;
+  lineMirror.style.width = `${Math.max(50, editor.clientWidth - padL - padR)}px`;
+  const ls = editor.value.split("\n");
+  let html = "";
+  let start = 0;
+  const starts: number[] = new Array(ls.length);
+  const tops: number[] = new Array(ls.length);
+  for (let i = 0; i < ls.length; i++) {
+    starts[i] = start;
+    start += ls[i].length + 1;
+    html += `<span>${md.utils.escapeHtml(ls[i])}\n</span>`;
+  }
+  lineMirror.innerHTML = html;
+  const spans = lineMirror.children;
+  for (let i = 0; i < spans.length; i++) {
+    tops[i] = (spans[i] as HTMLElement).offsetTop + padT;
+  }
+  edLineTops = tops;
+  edLineStart = starts;
+}
+
+// Y offset of each source line inside the preview. markdown-it reports each
+// block's source-line range (token.map), and rendered children keep the same
+// order as the top-level tokens, so walking both in lockstep yields reliable
+// anchors; in-between lines are interpolated linearly inside each block.
+function buildPreviewMap(text: string): void {
+  lastRenderedText = text;
+  const tokens = md.parse(text, {});
+  const kids = Array.from(content.children).filter(
+    (el) => !el.classList.contains("fm-card"),
+  );
+  const bTop: number[] = [];
+  const bLine: number[] = [];
+  const cRect = content.getBoundingClientRect();
+  let t = 0;
+  for (const el of kids) {
+    while (
+      t < tokens.length &&
+      !(tokens[t].level === 0 && tokens[t].map && tokens[t].type !== "front_matter")
+    ) {
+      t++;
+    }
+    if (t >= tokens.length) break;
+    bTop.push(
+      (el as HTMLElement).getBoundingClientRect().top - cRect.top + content.scrollTop,
+    );
+    bLine.push(tokens[t].map![0]);
+    t++;
+  }
+  const total = text.split("\n").length;
+  const tops: number[] = new Array(total);
+  if (bTop.length === 0) {
+    tops.fill(0);
+    pvLineTop = tops;
+    return;
+  }
+  for (let i = 0; i < bTop.length; i++) {
+    const fromLine = bLine[i];
+    const toLine = i + 1 < bTop.length ? bLine[i + 1] : total;
+    const fromY = bTop[i];
+    const toY = i + 1 < bTop.length ? bTop[i + 1] : bTop[i] + 40; // tail: one row past the last block
+    const step = toLine > fromLine ? (toY - fromY) / (toLine - fromLine) : 0;
+    for (let l = fromLine; l < toLine && l < total; l++) {
+      tops[l] = fromY + (l - fromLine) * step;
+    }
+  }
+  for (let l = 0; l < bLine[0] && l < total; l++) tops[l] = bTop[0];
+  pvLineTop = tops;
+}
+
+function edLineAtY(y: number): number {
+  const t = edLineTops;
+  if (!t || t.length === 0) return 0;
+  let lo = 0;
+  let hi = t.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (t[mid] <= y) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+function pvLineAtY(y: number): number {
+  const t = pvLineTop;
+  if (!t || t.length === 0) return 0;
+  let lo = 0;
+  let hi = t.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (t[mid] <= y) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+// Rebuild the maps when the pane geometry or text has drifted since they
+// were built (typing, font scale, resize, mode switches). Cheap: a string
+// compare per scroll event, a rebuild only on real change.
+function ensureMaps(): void {
+  const sig = paneSig();
+  if (sig === lastMapSig) return;
+  lastMapSig = sig;
+  buildEditorMap();
+  // The signature covers text length AND pane widths/font size, so a geometry
+  // change alone must rebuild BOTH maps — the preview's pixel offsets from the
+  // old width are wrong for the new one even when the text didn't change.
+  if (editMode) {
+    buildPreviewMap(editor.value);
+  } else if (pvLineTop === null) {
+    buildPreviewMap(lastRenderedText || currentText);
+  }
+}
+
 function syncScroll(from: HTMLElement, to: HTMLElement): void {
   // Consume the echo FIRST: a scroll event raised by a programmatic write
   // must be swallowed even while a preview render is pausing sync, otherwise
@@ -931,14 +1145,27 @@ function syncScroll(from: HTMLElement, to: HTMLElement): void {
     return;
   }
   if (!editMode || previewRendering) return;
-  const max = from.scrollHeight - from.clientHeight;
-  const ratio = max > 0 ? from.scrollTop / max : 0;
-  const target = ratio * (to.scrollHeight - to.clientHeight);
+  ensureMaps();
+  let line = -1;
+  let target: number;
+  if (edLineTops && pvLineTop) {
+    if (from === editor) {
+      line = edLineAtY(editor.scrollTop);
+      target = pvLineTop[Math.min(line, pvLineTop.length - 1)];
+    } else {
+      line = pvLineAtY(content.scrollTop);
+      target = edLineTops[Math.min(line, edLineTops.length - 1)];
+    }
+  } else {
+    // Fallback until maps exist (first frames after open).
+    const max = from.scrollHeight - from.clientHeight;
+    target = (max > 0 ? from.scrollTop / max : 0) * (to.scrollHeight - to.clientHeight);
+  }
   // Ignore sub-pixel differences so rounding can't start an echo chain.
   if (Math.abs(to.scrollTop - target) < 1) return;
   dbg("sync", {
     dir: from === editor ? "ed>pv" : "pv>ed",
-    ratio: +(from.scrollTop / max).toFixed(4),
+    line,
     toTop: Math.round(target),
   });
   syncEcho.add(to);
@@ -946,6 +1173,25 @@ function syncScroll(from: HTMLElement, to: HTMLElement): void {
 }
 editor.addEventListener("scroll", () => syncScroll(editor, content));
 content.addEventListener("scroll", () => syncScroll(content, editor));
+
+// Re-map when the window (and with it both panes) is resized.
+let mapResizeTimer: number | undefined;
+new ResizeObserver(() => {
+  if (!editMode) return;
+  window.clearTimeout(mapResizeTimer);
+  mapResizeTimer = window.setTimeout(() => {
+    lastMapSig = "";
+    ensureMaps();
+  }, 250);
+}).observe(content);
+new ResizeObserver(() => {
+  if (!editMode) return;
+  window.clearTimeout(mapResizeTimer);
+  mapResizeTimer = window.setTimeout(() => {
+    lastMapSig = "";
+    ensureMaps();
+  }, 250);
+}).observe(editor);
 
 // ---------- Close confirmation when there are unsaved changes ----------
 function showCloseModal(): void {
@@ -1003,6 +1249,7 @@ function applyFontScale(): void {
   fontScale = Math.min(2.6, Math.max(0.6, Math.round(fontScale * 10) / 10));
   document.documentElement.style.setProperty("--content-scale", String(fontScale));
   lsSet("fontScale", String(fontScale));
+  markMapsStale(); // font size change re-wraps both panes
 }
 function bumpFont(delta: number): void {
   fontScale += delta;
@@ -1019,6 +1266,7 @@ function applyWide(): void {
   layout.classList.toggle("wide-content", wideContent);
   wideToggle.classList.toggle("on", wideContent);
   lsSet("wideContent", String(wideContent));
+  markMapsStale(); // column width change re-wraps both panes
 }
 function toggleWide(): void {
   wideContent = !wideContent;
@@ -1150,6 +1398,7 @@ function applyReadingFont(): void {
   lsSet("fontCjk", fontCjkId);
   lsSet("fontLatinCustom", fontLatinCustom);
   lsSet("fontCjkCustom", fontCjkCustom);
+  markMapsStale(); // font change can re-wrap lines
 }
 fontLatinSel.addEventListener("change", () => {
   fontLatinId = fontLatinSel.value;
