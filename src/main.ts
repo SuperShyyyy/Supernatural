@@ -48,7 +48,8 @@ function dbg(tag: string, extra?: Record<string, unknown>): void {
       editor.value.slice(0, editor.selectionStart).split("\n").length;
     line +=
       ` ed=${editor.scrollTop}/${eSpan} pv=${content.scrollTop}/${cSpan}` +
-      ` careLn=${caretLn} em=${editMode ? 1 : 0}`;
+      ` ew=${editor.clientWidth} cw=${content.clientWidth}` +
+      ` dpr=${window.devicePixelRatio} careLn=${caretLn} em=${editMode ? 1 : 0}`;
     if (extra)
       for (const [k, v] of Object.entries(extra)) line += ` ${k}=${String(v)}`;
   } catch {
