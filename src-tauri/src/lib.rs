@@ -92,12 +92,17 @@ fn route_open(app: &tauri::AppHandle, state: &AppState, path: String) {
 }
 
 /// Pull a markdown file path out of the process arguments (set when the OS
-/// launches us via a `.md` file association on Windows / Linux).
+/// launches us via a `.md` / `.markdown` file association on Windows / Linux).
 fn path_from_args() -> Option<PathBuf> {
     std::env::args_os()
         .skip(1)
         .map(PathBuf::from)
-        .find(|p| p.extension().map(|e| e.eq_ignore_ascii_case("md")).unwrap_or(false) && p.exists())
+        .find(|p| {
+            p.extension()
+                .map(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+                .unwrap_or(false)
+                && p.exists()
+        })
 }
 
 /// Whether the app was launched with `--edit` (open straight into edit mode).

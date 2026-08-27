@@ -18,14 +18,14 @@ import hljsDarkCss from "highlight.js/styles/github-dark.css?inline";
 // ---------- Safe localStorage access (storage can be disabled / full) ----------
 function lsGet(key: string): string | null {
   try {
-    return lsGet(key);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 function lsSet(key: string, value: string): void {
   try {
-    lsSet(key, value);
+    localStorage.setItem(key, value);
   } catch {
     /* storage unavailable — preference just won't persist */
   }
@@ -325,7 +325,17 @@ function resolveImages(): void {
     const src = img.getAttribute("src") ?? "";
     // Skip absolute URLs (http:, data:, asset:, file:, …) and protocol-relative.
     if (!src || /^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith("//")) return;
-    const abs = `${dir}/${src}`.replace(/\\/g, "/");
+    // Remember the original reference so an HTML export can restore it — a
+    // converted asset:// URL is meaningless outside the app.
+    img.dataset.origSrc = src;
+    // Markdown encodes spaces etc. as %20, the filesystem doesn't have them.
+    let rel = src;
+    try {
+      rel = decodeURIComponent(src);
+    } catch {
+      /* malformed percent-encoding — try the raw value */
+    }
+    const abs = `${dir}/${rel}`.replace(/\\/g, "/");
     img.src = convertFileSrc(abs);
   });
 }
@@ -426,12 +436,20 @@ async function renderFrontMatter(): Promise<void> {
 async function renderMarkdown(
   text: string,
   preserveScroll = false,
+  scrollFrac?: number,
 ): Promise<void> {
   // A newer render supersedes this one: every `await` below re-checks the
   // token so a slow (mermaid / front-matter) render can never clobber the
   // DOM or scroll position of a newer render.
   const seq = ++renderSeq;
-  const scrollTop = content.scrollTop;
+  // Restore by scroll *fraction*, not absolute pixels: the preview column is
+  // only half as wide in edit mode, so the same document reflows to very
+  // different heights between modes — absolute offsets land far away from the
+  // text the user was looking at. Callers that flip the layout class (i.e.
+  // setEditMode) pass the fraction in, captured BEFORE the reflow.
+  const maxBefore = content.scrollHeight - content.clientHeight;
+  const fracBefore =
+    scrollFrac ?? (maxBefore > 0 ? content.scrollTop / maxBefore : 0);
   // Pause scroll-sync while the preview is rebuilt: resetting innerHTML
   // briefly clamps content.scrollTop to 0, and the scroll event that fires
   // mid-render (during the awaits below) would otherwise drag the editor
@@ -478,7 +496,8 @@ async function renderMarkdown(
     }
 
     // New documents start at the top; only hot-reload / live-edit keep position.
-    content.scrollTop = preserveScroll ? scrollTop : 0;
+    const maxAfter = content.scrollHeight - content.clientHeight;
+    content.scrollTop = preserveScroll ? fracBefore * maxAfter : 0;
   } finally {
     // Keep sync paused until the scroll event queued by the restore above has
     // been dispatched, and flush any stale echo entries, so a re-render never
@@ -557,13 +576,21 @@ function schedulePreview(): void {
   dirty = editor.value !== currentText;
   setTitle();
   window.clearTimeout(previewTimer);
-  previewTimer = window.setTimeout(
-    () => void renderMarkdown(editor.value, true),
-    180,
-  );
+  previewTimer = window.setTimeout(() => {
+    // Leaving edit mode renders directly; a stale debounce firing after that
+    // would re-render mid-transition with a clamped (≈0) scroll offset and
+    // fling the preview to the top of the document.
+    if (!editMode) return;
+    void renderMarkdown(editor.value, true);
+  }, 180);
 }
 
 function setEditMode(on: boolean): void {
+  // Capture the preview's scroll fraction BEFORE flipping the layout class:
+  // toggling .mode-edit resizes the preview column, and any offset read after
+  // the toggle refers to an already-reflowed (wrong) geometry.
+  const max = content.scrollHeight - content.clientHeight;
+  const frac = max > 0 ? content.scrollTop / max : 0;
   editMode = on;
   layout.classList.toggle("mode-edit", on);
   editToggle.textContent = on ? "👁 预览" : "✎ 编辑";
@@ -571,11 +598,30 @@ function setEditMode(on: boolean): void {
     // Only reload from the saved snapshot when there are no unsaved edits;
     // otherwise entering edit mode would wipe the user's unsaved buffer
     // (worst case: a freshly-opened empty file loses everything typed).
-    if (!dirty) editor.value = currentText;
+    if (!dirty && editor.value !== currentText) editor.value = currentText;
+    // Start the editor where the preview currently is, so the text the user
+    // was reading stays in view instead of jumping back to the very top.
+    let pos = Math.round(frac * editor.value.length);
+    if (pos > 0) {
+      // Snap to the start of a line so the caret lands on real text.
+      const nl = editor.value.lastIndexOf("\n", pos);
+      pos = nl === -1 ? 0 : nl + 1;
+    }
     editor.focus();
+    editor.setSelectionRange(pos, pos);
+    // Mirror the scroll silently: register the echo first so the programmatic
+    // write doesn't bounce straight back into the scroll-sync logic.
+    syncEcho.add(editor);
+    editor.scrollTop = frac * (editor.scrollHeight - editor.clientHeight);
+    // The preview column just got narrower and reflowed taller — re-anchor it
+    // at the same fraction, or it silently drifts away from the caret.
+    syncEcho.add(content);
+    const maxNarrow = content.scrollHeight - content.clientHeight;
+    content.scrollTop = frac * maxNarrow;
   } else {
-    // Leaving edit mode: render the latest source, keep position.
-    void renderMarkdown(editor.value, true);
+    // Leaving edit mode: render the latest source at the captured position.
+    window.clearTimeout(previewTimer);
+    void renderMarkdown(editor.value, true, frac);
   }
   setTitle();
 }
@@ -651,6 +697,14 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,Bli
 function buildExportHtml(): string {
   // Clone so we don't mutate the live DOM.
   const article = content.cloneNode(true) as HTMLElement;
+  // Local images were rewritten to asset:// for in-app display; an exported
+  // file must reference them the way the source document did.
+  article
+    .querySelectorAll<HTMLImageElement>("img[data-orig-src]")
+    .forEach((img) => {
+      img.setAttribute("src", img.dataset.origSrc ?? "");
+      delete img.dataset.origSrc;
+    });
   // Copy buttons are UI-only — strip them from the exported document.
   article.querySelectorAll(".copy-btn").forEach((b) => b.remove());
   // Strip column-resize scaffolding so exported tables use the default layout.
@@ -975,6 +1029,8 @@ fontCjkCustomEl.addEventListener("input", () => {
   () => {
     fontLatinId = "system";
     fontCjkId = "system";
+    fontLatinCustom = "";
+    fontCjkCustom = "";
     applyReadingFont();
   },
 );
@@ -1423,6 +1479,8 @@ window.addEventListener("keydown", (ev) => {
   } else if (ev.ctrlKey && (ev.key === "b" || ev.key === "B")) {
     ev.preventDefault();
     toggleFiles();
+  } else if (ev.key === "Escape" && !aboutModal.hidden) {
+    aboutModal.hidden = true;
   } else if (ev.key === "Escape" && !diagramModal.hidden) {
     closeDiagram();
   } else if (ev.key === "Escape" && !settingsModal.hidden) {
