@@ -652,7 +652,42 @@ async function save(): Promise<boolean> {
 }
 
 editToggle.addEventListener("click", toggleEdit);
-editor.addEventListener("input", schedulePreview);
+
+// Native textareas scroll the caret into view on every edit: pressing Enter
+// (or any key) while the caret is scrolled out of sight — the user wheel-
+// scrolled elsewhere to read — yanks the editor back to the caret and the
+// scroll-sync drags the preview along, so the text they were looking at
+// suddenly disappears. Undo that snap: a legit reveal (typing at the edge of
+// the viewport) only ever moves the view a line or two; anything larger is a
+// jump to a far-away caret and gets reverted, so the view stays put (the edit
+// itself still lands at the caret, exactly like VSCode).
+let preInputScroll = 0;
+let preInputContentFrac = 0;
+editor.addEventListener("beforeinput", () => {
+  preInputScroll = editor.scrollTop;
+  const max = content.scrollHeight - content.clientHeight;
+  preInputContentFrac = max > 0 ? content.scrollTop / max : 0;
+});
+function revertCaretSnap(): void {
+  if (Math.abs(editor.scrollTop - preInputScroll) <= editor.clientHeight * 0.25) {
+    return;
+  }
+  syncEcho.add(editor); // restore silently — don't drag the preview along
+  editor.scrollTop = preInputScroll;
+  // The reveal's scroll event already dragged the preview via scroll-sync
+  // before this revert ran — re-anchor it at the pre-edit fraction too.
+  const max = content.scrollHeight - content.clientHeight;
+  syncEcho.add(content);
+  content.scrollTop = preInputContentFrac * max;
+}
+editor.addEventListener("input", () => {
+  schedulePreview();
+  // The reveal scroll is part of the edit's default action, applied after the
+  // input listeners run — so check again on the next frames before giving up.
+  revertCaretSnap();
+  requestAnimationFrame(revertCaretSnap);
+  window.setTimeout(revertCaretSnap, 50);
+});
 saveBtn.addEventListener("click", () => void save());
 
 // ---------- Toast ----------
