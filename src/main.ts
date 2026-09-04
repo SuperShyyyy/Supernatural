@@ -31,37 +31,6 @@ function lsSet(key: string, value: string): void {
   }
 }
 
-// ---------- Scroll/render diagnostics log (temporary) ----------
-// Every viewport-relevant event is appended to /tmp/sn_diag.log via the
-// existing write_md command (no Rust changes needed). The file only grows to
-// a few tens of KB per session; it exists so a bug that only reproduces on
-// the user's desktop can be root-caused from real numbers instead of guesses.
-const DIAG_PATH = "/tmp/sn_diag.log";
-let diagBuf = "";
-let diagTimer: number | undefined;
-function dbg(tag: string, extra?: Record<string, unknown>): void {
-  let line = `${new Date().toISOString()} ${tag}`;
-  try {
-    const eSpan = editor.scrollHeight - editor.clientHeight;
-    const cSpan = content.scrollHeight - content.clientHeight;
-    const caretLn =
-      editor.value.slice(0, editor.selectionStart).split("\n").length;
-    line +=
-      ` ed=${editor.scrollTop}/${eSpan} pv=${content.scrollTop}/${cSpan}` +
-      ` ew=${editor.clientWidth} cw=${content.clientWidth}` +
-      ` dpr=${window.devicePixelRatio} careLn=${caretLn} em=${editMode ? 1 : 0}`;
-    if (extra)
-      for (const [k, v] of Object.entries(extra)) line += ` ${k}=${String(v)}`;
-  } catch {
-    /* editor/content not ready yet */
-  }
-  diagBuf += line + "\n";
-  window.clearTimeout(diagTimer);
-  diagTimer = window.setTimeout(() => {
-    invoke("write_md", { path: DIAG_PATH, content: diagBuf }).catch(() => {});
-  }, 400);
-}
-
 // ---------- Color theme (system / light / dark) ----------
 type ThemePref = "system" | "light" | "dark";
 const systemDarkMQ = window.matchMedia("(prefers-color-scheme: dark)");
@@ -474,7 +443,6 @@ async function renderMarkdown(
   // token so a slow (mermaid / front-matter) render can never clobber the
   // DOM or scroll position of a newer render.
   const seq = ++renderSeq;
-  dbg("render.start", { seq, preserveScroll, scrollFrac });
   // Restore by scroll *fraction*, not absolute pixels: the preview column is
   // only half as wide in edit mode, so the same document reflows to very
   // different heights between modes — absolute offsets land far away from the
@@ -538,13 +506,6 @@ async function renderMarkdown(
     if (preserveScroll && anchorLine !== undefined && pvLineTop) {
       content.scrollTop = pvLineTop[Math.min(anchorLine, pvLineTop.length - 1)];
     }
-    dbg("render.restored", {
-      seq,
-      frac: +fracBefore.toFixed(4),
-      maxBefore,
-      maxAfter,
-      line: anchorLine ?? -1,
-    });
   } finally {
     // Keep sync paused until the scroll event queued by the restore above has
     // been dispatched, and flush any stale echo entries, so a re-render never
@@ -605,10 +566,10 @@ async function openFile(
       editor.value = text;
       editor.scrollTop = st;
       editor.setSelectionRange(pos, pos);
-      dbg("openfile.editKeepView", { keptTop: st });
       // Same post-write reveal guard as setEditMode(true).
       preInputScroll = editor.scrollTop;
       snapWatchUntil = Date.now() + 300;
+      startAnchorWatch();
     }
     setTitle();
     await renderMarkdown(text, preserveScroll);
@@ -653,7 +614,6 @@ function schedulePreview(): void {
 }
 
 function setEditMode(on: boolean): void {
-  dbg(on ? "mode.enter" : "mode.exit", {});
   // A deliberate mode toggle ends the caret-snap watch: the editor mirror
   // below scrolls the textarea on purpose and must never be "reverted".
   snapWatchUntil = 0;
@@ -729,16 +689,10 @@ function setEditMode(on: boolean): void {
     // position briefly; any late pull back toward the caret gets reverted.
     preInputScroll = editor.scrollTop;
     snapWatchUntil = Date.now() + 300;
-    dbg("mode.enter.anchored", {
-      frac: +frac.toFixed(4),
-      caretPos: pos,
-      line: landedLine,
-    });
   } else {
     // Leaving edit mode: render the latest source, pinned to the exact line
     // the editor was showing (captured before the layout toggle above).
     window.clearTimeout(previewTimer);
-    dbg("mode.exit.render", { frac: +frac.toFixed(4), line: exitLine });
     void renderMarkdown(
       editor.value,
       true,
@@ -799,19 +753,15 @@ editor.addEventListener("beforeinput", () => {
 // revert any single jump bigger than a legitimate at-the-edge reveal. Small
 // deltas are adopted as the new baseline, so genuine user scrolling right
 // after typing is never fought.
-function revertCaretSnap(src: string): void {
+// `_src` is kept as a call-site label (scroll/input/raf) even though it is no
+// longer logged, to document where a revert originated.
+function revertCaretSnap(_src: string): void {
   const delta = Math.abs(editor.scrollTop - preInputScroll);
   if (delta <= editor.clientHeight * 0.25) {
     // Small move (normal reveal / user wheel): adopt it as the new baseline.
     preInputScroll = editor.scrollTop;
     return;
   }
-  dbg("snap.revert", {
-    src,
-    delta: Math.round(delta),
-    keepTop: preInputScroll,
-    jumpedTo: editor.scrollTop,
-  });
   syncEcho.add(editor); // restore silently — don't drag the preview along
   editor.scrollTop = preInputScroll;
   // The reveal's scroll event already dragged the preview via scroll-sync
@@ -832,21 +782,36 @@ function revertCaretSnap(src: string): void {
 editor.addEventListener("scroll", () => {
   if (Date.now() < snapWatchUntil) revertCaretSnap("scroll");
 });
-editor.addEventListener("input", (ev) => {
-  dbg("ed.input", { composing: (ev as InputEvent).isComposing === true });
+editor.addEventListener("input", () => {
   schedulePreview();
   snapWatchUntil = Date.now() + 400;
   revertCaretSnap("input");
+  // Ensure the RAF watcher is running for the post-input reveal window.
+  startAnchorWatch();
 });
 // The caret reveal does not always land within the input dispatch — WebKit
 // may apply it on any later frame, animated or not, and an IME's preedit
 // relayout can scroll too, all without another input event. Re-checking once
 // per animation frame (idempotent — a settled viewport short-circuits above)
 // closes that entire class of timing windows regardless of event order.
-(function anchorLoop(): void {
-  if (Date.now() < snapWatchUntil) revertCaretSnap("raf");
-  requestAnimationFrame(anchorLoop);
-})();
+//
+// The watcher only runs while a post-input / post-reveal window is active and
+// idles out otherwise. An unconditional rAF self-loop (the previous
+// implementation) scheduled requestAnimationFrame on every single frame for
+// the app's whole lifetime, burning CPU/battery and competing with the UI's
+// own frame pacing even when nothing was happening.
+let anchorRafId = 0;
+function startAnchorWatch(): void {
+  if (anchorRafId === 0) anchorRafId = requestAnimationFrame(anchorLoop);
+}
+function anchorLoop(): void {
+  if (Date.now() >= snapWatchUntil) {
+    anchorRafId = 0; // idle out — nothing to watch until the next edit
+    return;
+  }
+  revertCaretSnap("raf");
+  anchorRafId = requestAnimationFrame(anchorLoop);
+}
 saveBtn.addEventListener("click", () => void save());
 
 // ---------- Toast ----------
@@ -1163,11 +1128,6 @@ function syncScroll(from: HTMLElement, to: HTMLElement): void {
   }
   // Ignore sub-pixel differences so rounding can't start an echo chain.
   if (Math.abs(to.scrollTop - target) < 1) return;
-  dbg("sync", {
-    dir: from === editor ? "ed>pv" : "pv>ed",
-    line,
-    toTop: Math.round(target),
-  });
   syncEcho.add(to);
   to.scrollTop = target;
 }
