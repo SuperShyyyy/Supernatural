@@ -53,3 +53,52 @@
 .ui-label {
   white-space: nowrap;
 }
+
+/* ---------- 下拉菜单（最近文件） ---------- */
+.ui-menu {
+  position: relative;
+}
+
+.ui-menu__list {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: 20;
+  min-inline-size: 260px;
+  max-block-size: 50vh;
+  overflow: auto;
+  padding-block: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+
+.ui-menu__list[hidden] {
+  display: none;
+}
+
+.ui-menu__item {
+  display: block;
+  inline-size: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: var(--text-color);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-menu__item:hover {
+  background: var(--code-bg);
+  color: var(--accent-color);
+}
+
+.ui-menu__empty {
+  padding: 6px 12px;
+  opacity: 0.7;
+}

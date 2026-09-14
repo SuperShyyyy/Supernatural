@@ -1,7 +1,11 @@
 import { createEditor, type Editor } from '../core/editor/createEditor';
-import type { DocumentSource, FileSystemAdapter } from '../filesystem/FileSystemAdapter';
+import type { DocumentSource } from '../filesystem/FileSystemAdapter';
+import { FileSystemAccessAdapter } from '../filesystem/FileSystemAccessAdapter';
+import { DraftAdapter } from '../filesystem/DraftAdapter';
 import { LocalStorageAdapter } from '../filesystem/LocalStorageAdapter';
+import { RecentFilesStore } from '../filesystem/RecentFilesStore';
 import { AutosaveService, type SaveStatus } from '../services/autosave/AutosaveService';
+import { Topbar } from '../ui/topbar';
 import { DEMO_DOCUMENT } from './demoDocument';
 
 const DEFAULT_DOCUMENT_NAME = '未命名.md';
@@ -18,11 +22,16 @@ interface AppRefs {
 
 export async function startApp(root: HTMLElement): Promise<void> {
   const refs = resolveRefs(root);
-  const adapter: FileSystemAdapter = new LocalStorageAdapter();
-  const opened = await adapter.open();
 
-  let documentName = opened?.name ?? DEFAULT_DOCUMENT_NAME;
-  const initialMarkdown = opened?.content ?? DEMO_DOCUMENT;
+  const fileAdapter = new FileSystemAccessAdapter();
+  const draftAdapter = new LocalStorageAdapter();
+  const recentStore = new RecentFilesStore();
+  const adapter = new DraftAdapter(fileAdapter, draftAdapter);
+
+  // 上次没保存完的草稿优先恢复，避免"刷新即失"
+  const draft = await draftAdapter.open();
+  let documentName = draft?.name ?? DEFAULT_DOCUMENT_NAME;
+  const initialMarkdown = draft?.content ?? DEMO_DOCUMENT;
 
   let editor: Editor | null = null;
   let frame = 0;
@@ -57,6 +66,71 @@ export async function startApp(root: HTMLElement): Promise<void> {
     },
   });
 
+  const applySource = (source: DocumentSource): void => {
+    documentName = source.name;
+    editor?.setMarkdown(source.content);
+    renderDocumentName(refs.docName, documentName);
+    scheduleStatsUpdate();
+    editor?.focus();
+    autosave.markDirty();
+  };
+
+  const rememberRecent = (): void => {
+    const handle = fileAdapter.handle;
+    if (handle === null) return;
+    void recentStore
+      .put({ name: handle.name, updatedAt: Date.now(), handle })
+      .then(() => recentStore.list())
+      .then((entries) => topbar.setRecentFiles(entries))
+      .catch(() => undefined);
+  };
+
+  const topbar = new Topbar(root, {
+    onNew: () => {
+      const content = editor?.getMarkdown() ?? '';
+      if (content.trim().length > 0 && !window.confirm('新建会清空当前内容，继续？')) return;
+      documentName = DEFAULT_DOCUMENT_NAME;
+      fileAdapter.setHandle(null, documentName);
+      editor?.setMarkdown('');
+      renderDocumentName(refs.docName, documentName);
+      scheduleStatsUpdate();
+      editor?.focus();
+      autosave.markDirty();
+    },
+    onOpen: () => {
+      void fileAdapter.open().then((source) => {
+        if (source === null) return;
+        applySource(source);
+        rememberRecent();
+      });
+    },
+    onSaveAs: () => {
+      void saveAsVia(fileAdapter, () => ({
+        name: documentName,
+        content: editor?.getMarkdown() ?? '',
+      })).then((name) => {
+        if (name === null) return;
+        documentName = name;
+        renderDocumentName(refs.docName, documentName);
+        rememberRecent();
+        void autosave.saveNow();
+      });
+    },
+    onOpenRecent: (entry) => {
+      if (entry.handle === undefined) return;
+      void fileAdapter.openHandle(entry.handle).then((source) => {
+        if (source === null) return;
+        applySource(source);
+        rememberRecent();
+      });
+    },
+  });
+
+  void recentStore
+    .list()
+    .then((entries) => topbar.setRecentFiles(entries))
+    .catch(() => undefined);
+
   renderDocumentName(refs.docName, documentName);
   scheduleStatsUpdate();
   editor.focus();
@@ -70,19 +144,21 @@ export async function startApp(root: HTMLElement): Promise<void> {
     }
     if (event.shiftKey && (event.key === 's' || event.key === 'S')) {
       event.preventDefault();
-      void saveAs(adapter, () => ({ name: documentName, content: editor?.getMarkdown() ?? '' })).then(
-        (name) => {
-          if (name === null) return;
-          documentName = name;
-          renderDocumentName(refs.docName, documentName);
-        },
-      );
+      void saveAsVia(fileAdapter, () => ({
+        name: documentName,
+        content: editor?.getMarkdown() ?? '',
+      })).then((name) => {
+        if (name === null) return;
+        documentName = name;
+        renderDocumentName(refs.docName, documentName);
+        rememberRecent();
+      });
     }
   });
 }
 
-async function saveAs(
-  adapter: FileSystemAdapter,
+async function saveAsVia(
+  adapter: FileSystemAccessAdapter,
   source: () => DocumentSource,
 ): Promise<string | null> {
   return adapter.saveAs(source());

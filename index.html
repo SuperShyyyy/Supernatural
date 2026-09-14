@@ -7,11 +7,22 @@
   </head>
 
   <body>
-    <!-- 应用外壳：自身不滚动（见 styles/layout.css 的四层约束） -->
+    <!-- 应用外壳：自身不滚动（见 src/styles/layout.css 的四层约束） -->
     <div class="app" id="app">
       <header class="ui-bar">
         <span class="ui-bar__title">md-editer</span>
+
+        <button type="button" class="ui-btn ui-btn--text" id="btn-new">新建</button>
+        <button type="button" class="ui-btn ui-btn--text" id="btn-open">打开</button>
+        <button type="button" class="ui-btn ui-btn--text" id="btn-save-as">另存为</button>
+
+        <div class="ui-menu">
+          <button type="button" class="ui-btn ui-btn--text" id="btn-recent">最近</button>
+          <div class="ui-menu__list" id="recent-list" hidden></div>
+        </div>
+
         <span class="ui-bar__file" id="doc-name">未命名.md</span>
+
         <span class="ui-group ui-group--end">
           <span class="ui-label" id="save-status"></span>
         </span>
@@ -24,8 +35,8 @@
         <span>字符 <b id="stat-characters">0</b></span>
         <span>词 <b id="stat-words">0</b></span>
         <span>块 <b id="stat-blocks">0</b></span>
-        <span class="ui-bar__hint">
-          Ctrl/Cmd + B 粗体 · I 斜体 · E 行内代码 · 1–6 标题 · Shift+8/9 列表 · S 保存
+        <span class="ui-bar__hint" id="hint-bar">
+          Ctrl/Cmd + B 粗体 · I 斜体 · K 链接 · 1–6 标题 · Shift+8/9 列表 · Alt+T 表格 · S 保存
         </span>
       </footer>
     </div>
