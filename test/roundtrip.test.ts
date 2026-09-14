@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEMO_DOCUMENT } from '../src/app/demoDocument';
 import { parseMarkdown, serializeMarkdown } from '../src/markdown';
 
 function roundTrip(markdown: string): string {
@@ -76,6 +77,53 @@ describe('markdown 往返', () => {
     const once = roundTrip('# 不是标题的段落\n');
     expect(roundTrip(once)).toBe(once);
     expect(roundTrip('\\# 不是标题的段落\n')).toBe('\\# 不是标题的段落\n');
+  });
+
+  it('URL 里的空格会被编码，保证往返后仍是图片 / 链接', () => {
+    // 裸空格在 CommonMark 里不是合法链接目标，必须用 <...> 包裹；
+    // 我们序列化时统一编码成 %20，这样再次解析不需要尖括号也不会退化成文本。
+    const image = roundTrip('![alt](<https://example.com/a b.png>)\n');
+    expect(image).toBe('![alt](https://example.com/a%20b.png)\n');
+    expect(parseMarkdown(image).firstChild?.firstChild?.type.name).toBe('image');
+
+    const link = roundTrip('[标题](<https://example.com/a b.html>)\n');
+    expect(link).toBe('[标题](https://example.com/a%20b.html)\n');
+    expect(parseMarkdown(link).firstChild?.firstChild?.marks[0]?.type.name).toBe('link');
+  });
+
+  it('放宽 data: 校验但仍挡住危险协议', () => {
+    // markdown-it 默认只放行 data:image/(gif|png|jpeg|webp)，svg 会被降级成文本；
+    // parser 里放行全部 data:image/*，其余危险协议仍然拒绝。
+    const svg = "![img](data:image/svg+xml;utf8,%3Csvg/%3E)\n";
+    expect(roundTrip(svg)).toBe(svg);
+
+    // 被拒绝的协议会退化成纯文本，绝不会变成链接 mark
+    const dangerous = parseMarkdown('[x](javascript:alert(1))\n');
+    expect(dangerous.firstChild?.firstChild?.marks.length).toBe(0);
+
+    const htmlData = parseMarkdown('[x](data:text/html;base64,PHNjcmlwdD4=)\n');
+    expect(htmlData.firstChild?.firstChild?.marks.length).toBe(0);
+  });
+
+  it('编码后的 data URI 图片可以正常往返', () => {
+    const source =
+      "![img](data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='64'%20height='64'%3E%3C/svg%3E)\n";
+    const once = roundTrip(source);
+    expect(once).toBe(source);
+    expect(parseMarkdown(once).firstChild?.firstChild?.type.name).toBe('image');
+  });
+
+  it('示例文档能被完整解析（图片 / 表格 / 公式 / 图表都在）', () => {
+    const doc = parseMarkdown(DEMO_DOCUMENT);
+    const types = new Set<string>();
+    doc.descendants((node) => {
+      types.add(node.type.name);
+      return true;
+    });
+
+    for (const expected of ['heading', 'paragraph', 'bullet_list', 'ordered_list', 'blockquote', 'code_block', 'table', 'image', 'math_inline', 'math_block', 'diagram']) {
+      expect(types.has(expected)).toBe(true);
+    }
   });
 
   it('图片宽度通过 title 通道往返', () => {

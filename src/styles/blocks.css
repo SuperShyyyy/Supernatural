@@ -146,6 +146,13 @@
   border-radius: var(--ui-radius);
 }
 
+.md-image--broken img {
+  min-inline-size: 160px;
+  min-block-size: 60px;
+  border: 1px dashed var(--danger-color);
+  background: var(--code-bg);
+}
+
 /* 尺寸调整把手：absolute 只用于这一个纯装饰元素，不参与任何布局计算 */
 .md-image__handle {
   position: absolute;

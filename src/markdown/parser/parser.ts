@@ -15,6 +15,22 @@ import type { Mark, MarkType, Node as PMNode, Schema } from 'prosemirror-model';
 import { headingLevelOf, markdownSchema } from '../../core/document/schema';
 import { requireMarkType, requireNodeType } from '../../core/document/nodeTypes';
 
+/** 允许所有 data:image/* ：通过 <img> 加载的 SVG 不会执行脚本。 */
+const ALLOWED_DATA_IMAGE = /^data:image\/[a-z0-9.+-]+;/i;
+/** 其余危险协议一律拒绝。 */
+const BLOCKED_PROTOCOL = /^(?:javascript|vbscript|file):/i;
+
+/**
+ * markdown-it 默认只放行 data:image/(gif|png|jpeg|webp)，
+ * 会把 data:image/svg+xml 整段降级成纯文本（表现为"图片变成一串源码文字"）。
+ * 这里放行全部 data:image/*，其余危险协议仍然拒绝。
+ */
+function validateLink(url: string): boolean {
+  const value = url.trim().toLowerCase();
+  if (value.startsWith('data:')) return ALLOWED_DATA_IMAGE.test(value);
+  return !BLOCKED_PROTOCOL.test(value);
+}
+
 /**
  * 只用 markdown-it 做词法/语法分析，从不使用它的 renderer —— 渲染交给 ProseMirror。
  * texmath 提供 $...$ 与 $$...$$ 的 token（行内公式在 Phase 2 起支持）。
@@ -25,6 +41,9 @@ const tokenizer = new MarkdownIt({
   typographer: false,
   breaks: false,
 }).use(texmath);
+
+// validateLink 不在构造参数类型里（v15），只能在实例上覆盖
+tokenizer.validateLink = validateLink;
 
 interface BlockResult {
   readonly nodes: readonly PMNode[];

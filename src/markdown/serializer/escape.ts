@@ -29,6 +29,17 @@ export function escapeBlockStart(text: string): string {
   return `${indent}\\${marker}${text.slice(indent.length + marker.length)}`;
 }
 
+/**
+ * 编码链接目标（图片 src / 链接 href）。
+ *
+ * Markdown 的 link destination 不允许出现裸空格与尖括号，一旦出现整行就会
+ * 退化成纯文本（data URI 最容易踩到：`<svg xmlns='...' width='...'>` 里全是空格）。
+ * 已经存在的 %xx 编码保持不动，避免二次编码。
+ */
+export function encodeUrl(url: string): string {
+  return url.replace(/\s/g, '%20').replace(/</g, '%3C').replace(/>/g, '%3E');
+}
+
 /** 计算字符串中最长的连续反引号长度，用于选择足够的围栏长度。 */
 export function longestBacktickRun(text: string): number {
   let longest = 0;

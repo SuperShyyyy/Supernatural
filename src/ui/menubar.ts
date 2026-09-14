@@ -15,6 +15,7 @@ export interface MenuBarActions {
   onZoomReset(): void;
   onToggleTheme(): void;
   onShowShortcuts(): void;
+  onLoadDemo(): void;
   onOpenRecent(entry: RecentFileEntry): void;
 }
 
@@ -179,7 +180,10 @@ export class MenuBar {
 
     const help: Menu = {
       label: '帮助',
-      items: [{ title: '快捷键', run: () => this.#actions.onShowShortcuts() }],
+      items: [
+        { title: '快捷键', run: () => this.#actions.onShowShortcuts() },
+        { title: '载入示例文档', run: () => this.#actions.onLoadDemo() },
+      ],
     };
 
     return [file, edit, viewMenu, format, insert, help];

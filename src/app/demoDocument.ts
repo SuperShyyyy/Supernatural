@@ -52,7 +52,7 @@ $$
 \\int_0^1 x^2\\,dx = \\frac{1}{3}
 $$
 
-![示例图片](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='160'><rect width='100%' height='100%' fill='%234b8bf4'/><text x='50%' y='50%' fill='white' font-size='26' text-anchor='middle' dominant-baseline='middle'>示例图片（可拖动右下角调整宽度）</text></svg>)
+![示例图片](data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='640'%20height='160'%3E%3Crect%20width='100%'%20height='100%'%20fill='%234b8bf4'/%3E%3Ctext%20x='50%'%20y='50%'%20fill='white'%20font-size='26'%20text-anchor='middle'%20dominant-baseline='middle'%3E示例图片（可拖动右下角调整宽度）%3C/text%3E%3C/svg%3E)
 
 \`\`\`mermaid
 graph LR

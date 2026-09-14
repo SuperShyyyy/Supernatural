@@ -29,6 +29,10 @@ export function createImageView(node: PMNode, view: EditorView, getPos: () => nu
   dom.append(img, handle);
   sync();
 
+  // 加载失败时给出可见的占位，而不是一个意义不明的坏图图标
+  img.addEventListener('error', () => dom.classList.add('md-image--broken'));
+  img.addEventListener('load', () => dom.classList.remove('md-image--broken'));
+
   let dragging = false;
   let startX = 0;
   let startWidth = 0;

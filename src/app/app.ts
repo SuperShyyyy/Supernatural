@@ -151,6 +151,13 @@ export async function startApp(root: HTMLElement): Promise<void> {
         applyTheme(next);
       },
       onShowShortcuts: () => shortcutsDialog.show(),
+      onLoadDemo: () => {
+        if (!window.confirm('载入示例文档会替换当前内容，继续？')) return;
+        editor.setMarkdown(DEMO_DOCUMENT);
+        scheduleStatsUpdate();
+        editor.focus();
+        autosave.markDirty();
+      },
       onOpenRecent: (entry) => {
         if (entry.handle === undefined) return;
         void fileAdapter

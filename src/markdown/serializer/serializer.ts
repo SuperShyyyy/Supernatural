@@ -9,7 +9,7 @@
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 
 import { headingLevelOf } from '../../core/document/schema';
-import { escapeBlockStart, escapeInline, fenceCodeBlock, fenceInlineCode } from './escape';
+import { encodeUrl, escapeBlockStart, escapeInline, fenceCodeBlock, fenceInlineCode } from './escape';
 
 const BLOCK_SEPARATOR = '\n\n';
 
@@ -178,7 +178,7 @@ function serializeInlineNode(node: PMNode): string {
 
 function serializeImage(node: PMNode): string {
   const alt = escapeInline(stringAttr(node, 'alt', ''));
-  const src = stringAttr(node, 'src', '');
+  const src = encodeUrl(stringAttr(node, 'src', ''));
   const width = node.attrs['width'];
   const title =
     typeof width === 'number' && width > 0 ? `width=${width}` : stringAttr(node, 'title', '');
@@ -199,7 +199,7 @@ function wrapMark(text: string, mark: Mark): string {
     case 'code':
       return fenceInlineCode(text);
     case 'link': {
-      const href = stringAttrOfMark(mark, 'href');
+      const href = encodeUrl(stringAttrOfMark(mark, 'href'));
       const title = stringAttrOfMark(mark, 'title');
       const titlePart = title.length > 0 ? ` "${title}"` : '';
       return `[${text}](${href}${titlePart})`;
