@@ -54,7 +54,9 @@ export class AutosaveService {
     this.#setStatus('saving');
     this.#pending = this.#pending.then(async () => {
       try {
-        await this.#adapter.save(this.#source());
+        // 序列化是 O(doc)，放在空闲帧执行，避免和输入抢主线程
+        const source = await whenIdle(() => this.#source());
+        await this.#adapter.save(source);
         this.#savedAt = new Date();
         this.#setStatus('saved', this.#savedAt);
       } catch {
@@ -73,4 +75,15 @@ export class AutosaveService {
     this.#status = status;
     this.#onStatusChange?.(status, savedAt ?? this.#savedAt);
   }
+}
+
+/** 在浏览器空闲时段执行；不支持 requestIdleCallback 时退化为下一个宏任务。 */
+function whenIdle<T>(task: () => T): Promise<T> {
+  return new Promise((resolve) => {
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(() => resolve(task()), { timeout: 1000 });
+      return;
+    }
+    window.setTimeout(() => resolve(task()), 0);
+  });
 }

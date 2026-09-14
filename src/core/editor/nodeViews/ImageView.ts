@@ -18,6 +18,9 @@ export function createImageView(node: PMNode, view: EditorView, getPos: () => nu
   dom.className = 'md-image';
 
   const img = document.createElement('img');
+  // 大文档里图片可能几十上百张：交给浏览器懒加载，解码也不阻塞主线程
+  img.loading = 'lazy';
+  img.decoding = 'async';
   const handle = document.createElement('span');
   handle.className = 'md-image__handle';
   handle.contentEditable = 'false';

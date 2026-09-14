@@ -7,25 +7,91 @@
  *   图片   → 收缩（不产生滚动条）（Phase 2）
  */
 
-/* ---------- 代码块 ---------- */
-/* 直接给 pre 加约束，而不是再包一层 div：少一个 DOM 层级，
-   也避免 parseDOM 需要额外处理包装元素。 */
-.editor-content pre {
+/* ---------- 代码块（NodeView：源码层 + 高亮显示层） ---------- */
+.md-codeblock {
+  position: relative;
   max-inline-size: 100%;
   min-inline-size: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  margin-block: 0 1em;
-  padding: 0.9em 1em;
+  margin-block: 1em;
   border: 1px solid var(--border-color);
   border-radius: var(--ui-radius);
   background: var(--code-bg);
-  /* 长行不换行，由自身横向滚动消化 */
+}
+
+.md-codeblock__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 8px;
+  border-block-end: 1px solid var(--border-color);
+  color: var(--muted-color);
+  font-size: 0.75em;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  user-select: none;
+}
+
+.md-codeblock:hover .md-codeblock__bar,
+.md-codeblock:focus-within .md-codeblock__bar {
+  opacity: 1;
+}
+
+.md-codeblock__copy {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.md-codeblock__copy:hover {
+  color: var(--accent-color);
+}
+
+.md-codeblock__scroll {
+  position: relative;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  /* 长行只在代码块内部横向滚动 */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.md-codeblock__source,
+.md-codeblock__pretty {
+  margin: 0;
+  padding: 0.8em 1em;
+  min-inline-size: 100%;
+  inline-size: max-content;
+  /* 保留原始换行与缩进 */
   white-space: pre;
   font-family: var(--font-mono);
   font-size: 0.9em;
   line-height: 1.55;
   tab-size: 2;
+}
+
+/* 高亮层只是装饰：不参与交互，也不影响滚动宽度 */
+.md-codeblock__pretty {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.md-codeblock--highlighted .md-codeblock__pretty {
+  visibility: visible;
+}
+
+/* 只有在高亮就绪后才隐藏源码文字，避免"高亮没加载完就看不见字" */
+.md-codeblock--highlighted .md-codeblock__source code {
+  color: transparent;
+}
+
+.md-codeblock__source {
+  caret-color: var(--accent-color);
 }
 
 /* 覆盖 content.css 里行内 code 的样式 */
@@ -148,6 +214,45 @@
 
 .md-math-inline {
   display: inline-block;
+}
+
+/* ---------- 语法高亮配色（highlight.js） ---------- */
+/* 基础配色用 highlight.js 自带的 github 主题，这里只对齐容器背景并补深色主题 */
+.md-codeblock .hljs {
+  background: transparent;
+  color: var(--text-color);
+  padding: 0;
+}
+
+:root[data-theme='dark'] .md-codeblock .hljs-comment,
+:root[data-theme='dark'] .md-codeblock .hljs-quote {
+  color: #8b95a3;
+}
+
+:root[data-theme='dark'] .md-codeblock .hljs-keyword,
+:root[data-theme='dark'] .md-codeblock .hljs-selector-tag,
+:root[data-theme='dark'] .md-codeblock .hljs-literal {
+  color: #ff9d8a;
+}
+
+:root[data-theme='dark'] .md-codeblock .hljs-string,
+:root[data-theme='dark'] .md-codeblock .hljs-attr {
+  color: #9ad8a1;
+}
+
+:root[data-theme='dark'] .md-codeblock .hljs-number,
+:root[data-theme='dark'] .md-codeblock .hljs-symbol {
+  color: #d9a5ff;
+}
+
+:root[data-theme='dark'] .md-codeblock .hljs-title,
+:root[data-theme='dark'] .md-codeblock .hljs-section {
+  color: #7fb8ff;
+}
+
+:root[data-theme='dark'] .md-codeblock .hljs-built_in,
+:root[data-theme='dark'] .md-codeblock .hljs-type {
+  color: #ffd479;
 }
 
 /* ---------- Mermaid 图表 ---------- */

@@ -11,6 +11,7 @@ import './styles/editor.css';
 
 import 'katex/dist/katex.min.css';
 import 'prosemirror-tables/style/tables.css';
+import 'highlight.js/styles/github.css';
 
 import { startApp } from './app/app';
 

@@ -36,8 +36,10 @@ export function createSearchPlugin(): Plugin<SearchState> {
         const meta = transaction.getMeta(searchPluginKey) as SearchMeta | undefined;
 
         if (meta === undefined) {
-          // 文档变了 → 之前的匹配位置全部失效，必须重算（面板关闭时 query 为空，直接跳过）
+          // 面板关闭时无需维护匹配列表
           if (previous.query.length === 0) return previous;
+          // 只有文档真的变了才重算：选区变化、装饰更新都不影响匹配位置
+          if (!transaction.docChanged) return previous;
           return recompute(newState.doc, previous.query, previous.caseSensitive, previous.current);
         }
 

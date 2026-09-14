@@ -2,6 +2,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeViewConstructor } from 'prosemirror-view';
 import { TableView } from 'prosemirror-tables';
 
+import { createCodeBlockView } from './CodeBlockView';
 import { createDiagramView } from './DiagramView';
 import { createImageView } from './ImageView';
 import { createMathView } from './MathView';
@@ -21,6 +22,7 @@ export function createNodeViews(): Record<string, NodeViewConstructor> {
     math_inline: (node: PMNode) => createMathView(node, false),
     math_block: (node: PMNode) => createMathView(node, true),
     diagram: (node: PMNode) => createDiagramView(node),
+    code_block: (node: PMNode) => createCodeBlockView(node),
     // TableView 提供列宽拖拽能力，配合 columnResizing() 插件使用
     table: (node: PMNode) => new TableView(node, TABLE_CELL_MIN_WIDTH),
   };
