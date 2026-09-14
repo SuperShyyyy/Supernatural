@@ -1,0 +1,87 @@
+/**
+ * 四层布局约束：
+ *
+ *   Viewport (html/body)      overflow:hidden           —— 页面级永不滚动
+ *     └─ Editor Viewport      overflow-y:auto / x:hidden —— 唯一滚动容器
+ *          └─ Content Column  min(理想 em 宽度, 100%)     —— 唯一决定行宽
+ *               └─ Block      max-inline-size:100%       —— 任何块都不能顶开列宽
+ *
+ * 约束方向是"自顶向下限定宽度、自底向上消化溢出"：
+ *   宽度只能由上层往下传；溢出必须在产生它的那一层被消化（换行 / 内部滚动 / 收缩），
+ *   绝不允许向上抛。
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  /* 应用外壳：页面自身永不出现滚动条 */
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--desk-color);
+  color: var(--text-color);
+  font-family: var(--font-sans);
+  font-size: var(--ui-font-size);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Layer 1: 应用外壳 ---------- */
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  block-size: 100dvh;
+  /* Prototype 专用：模拟窗口宽度（真实项目里 .app 恒为 100%） */
+  inline-size: 100%;
+  max-inline-size: var(--sim-viewport, 100%);
+  margin-inline: auto;
+  overflow: hidden;
+  background: var(--bg-color);
+}
+
+/* ---------- Layer 2: 唯一的滚动容器 ---------- */
+.editor-viewport {
+  /* grid item 必须显式允许收缩，否则内部内容会把行高顶开 */
+  min-block-size: 0;
+  overflow-y: auto;
+  /* 横向滚动在编辑器层被永久禁止：任何横向溢出都必须在块级内部消化 */
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-inline: var(--viewport-gutter);
+  padding-block: var(--viewport-gutter) 40vh;
+  background: var(--editor-bg);
+  /* 滚动条不参与内容宽度计算，避免"出现滚动条 → 布局变化"的抖动 */
+  scrollbar-gutter: stable;
+}
+
+/* ---------- Layer 3: 内容列 ---------- */
+.editor-content {
+  font-size: var(--content-scaled-font-size);
+  line-height: var(--content-line-height);
+
+  /* 关键：双约束。
+     视口宽 → 取 em 理想宽度（文字与行宽一起放大，保持每行字符数）；
+     视口窄 → 取 100%，列宽被钉死在容器内容盒宽度，缩放再大也不会溢出。 */
+  inline-size: 100%;
+  max-inline-size: min(var(--content-max), 100%);
+  min-inline-size: min(var(--content-min), 100%);
+  margin-inline: auto;
+
+  /* 普通文本永不横向溢出 */
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* ---------- Layer 4: 块级默认约束 ---------- */
+.editor-content > * {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}

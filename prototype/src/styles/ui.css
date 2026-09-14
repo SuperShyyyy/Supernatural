@@ -1,0 +1,177 @@
+/* Prototype 的 UI 外壳（工具栏 / 状态栏 / 审计 HUD）。
+   注意：这里所有尺寸都用 px，不随 --editor-zoom 变化。 */
+
+.ui-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-gap);
+  min-block-size: var(--ui-bar-height);
+  padding-inline: var(--ui-gap);
+  border-block-end: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--muted-color);
+  font-size: var(--ui-font-size);
+}
+
+.ui-bar--status {
+  border-block-end: 0;
+  border-block-start: 1px solid var(--border-color);
+  gap: calc(var(--ui-gap) * 2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-bar--status b {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.ui-bar__title {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.ui-bar__hint {
+  margin-inline-start: auto;
+  opacity: 0.7;
+}
+
+.ui-group {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-gap);
+}
+
+.ui-group--end {
+  margin-inline-start: auto;
+}
+
+.ui-label {
+  white-space: nowrap;
+}
+
+.ui-output {
+  min-inline-size: 5.5ch;
+  text-align: end;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-btn {
+  min-inline-size: 2em;
+  padding-inline: 0.6em;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font: inherit;
+  line-height: 1.9;
+  cursor: pointer;
+}
+
+.ui-btn:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.ui-btn--text {
+  border-color: transparent;
+  background: none;
+}
+
+.ui-select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font: inherit;
+  padding-block: 0.2em;
+}
+
+input[type='range'] {
+  inline-size: 160px;
+  accent-color: var(--accent-color);
+}
+
+/* ---------- 审计 HUD ---------- */
+.hud {
+  position: fixed;
+  inset-block-end: calc(var(--ui-bar-height) + 12px);
+  inset-inline-end: 12px;
+  z-index: 10;
+  max-inline-size: min(360px, calc(100vw - 24px));
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  color: var(--muted-color);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 12%);
+}
+
+.hud__summary {
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hud__badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+.hud__badge[data-ok='false'] {
+  background: var(--danger-color);
+  color: #fff;
+}
+
+.hud__badge[data-ok='true'] {
+  background: var(--ok-color);
+  color: #fff;
+}
+
+.hud__body {
+  max-block-size: 40vh;
+  overflow: auto;
+  padding: 0 10px 10px;
+}
+
+.hud__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.hud__table th,
+.hud__table td {
+  padding: 2px 4px;
+  border-block-end: 1px solid var(--border-color);
+  text-align: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud__table th:first-child,
+.hud__table td:first-child {
+  text-align: start;
+}
+
+.hud__row[data-ok='false'] {
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+.hud__violators:empty {
+  display: none;
+}
+
+.hud__violators {
+  margin-block-start: 6px;
+  color: var(--danger-color);
+  line-height: 1.5;
+}
+
+.hud__ok {
+  margin-block-start: 6px;
+  color: var(--ok-color);
+}

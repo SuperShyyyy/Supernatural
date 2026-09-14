@@ -1,0 +1,115 @@
+/**
+ * 三类"危险块"的溢出策略。
+ * 共同前提：max-inline-size: 100% + min-inline-size: 0（绝不顶开内容列）。
+ *
+ *   代码块 → 内部横向滚动（保留原始换行语义）
+ *   表格   → 先自动适配并换行，min-content 仍然过宽时内部横向滚动
+ *   图片   → 收缩（不产生滚动条）
+ */
+
+/* ---------- 代码块 ---------- */
+.md-codeblock {
+  position: relative;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  /* 溢出在代码块自己内部消化 */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--code-bg);
+}
+
+.md-codeblock pre {
+  margin: 0;
+  padding: 0.9em 1em;
+  /* 长行不换行，由外层 wrapper 横向滚动 */
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1.55;
+}
+
+.md-codeblock code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.md-codeblock__lang {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  padding: 0.2em 0.6em;
+  border-end-start-radius: var(--ui-radius);
+  background: var(--border-color);
+  color: var(--muted-color);
+  font-size: 0.75em;
+  user-select: none;
+}
+
+/* ---------- 表格 ---------- */
+.md-table-scroll {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  /* 极宽表格在表格容器内横向滚动，不影响页面 */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.md-table-scroll table {
+  border-collapse: collapse;
+  /* 不设 width:100% —— 让表格按内容收缩（shrink-to-fit），
+     单元格内容过长时自动换行；只有 min-content 仍超过列宽时才触发内部滚动。 */
+  font-size: 0.95em;
+}
+
+.md-table-scroll th,
+.md-table-scroll td {
+  padding: 0.4em 0.7em;
+  border: 1px solid var(--border-color);
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.md-table-scroll th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+/* ---------- 图片 ---------- */
+.md-figure {
+  max-inline-size: 100%;
+  margin-inline: auto;
+}
+
+.md-figure img {
+  display: block;
+  /* 原始尺寸显示；超过编辑区宽度时等比收缩；绝不拉伸 */
+  max-inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--ui-radius);
+}
+
+.md-figure figcaption {
+  margin-block-start: 0.5em;
+  color: var(--muted-color);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* ---------- 数学公式（Phase 2 占位） ---------- */
+.md-math {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-block: 0.4em;
+}
+
+.md-math__body {
+  display: block;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
