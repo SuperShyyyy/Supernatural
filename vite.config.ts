@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // 相对路径：打包后可以直接放到任意目录 / 静态服务器上，不必挂在域名根目录
+  base: './',
   server: {
     port: 5173,
     host: '127.0.0.1',

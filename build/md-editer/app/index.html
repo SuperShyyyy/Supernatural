@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>md-editer</title>
+    <script type="module" crossorigin src="./assets/main-DqsBv3c8.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-P2Xu9kJm.js">
+    <link rel="stylesheet" crossorigin href="./assets/main-CAcpquSx.css">
+  </head>
+
+  <body>
+    <!-- 应用外壳：自身不滚动（见 src/styles/layout.css 的四层约束） -->
+    <div class="app" id="app">
+      <header class="ui-bar">
+        <span class="ui-bar__title">md-editer</span>
+        <nav class="ui-menubar" id="menubar"></nav>
+
+        <span class="ui-bar__file" id="doc-name">未命名.md</span>
+
+        <span class="ui-group ui-group--end">
+          <span class="ui-label" id="zoom-value">100%</span>
+          <span class="ui-label" id="save-status"></span>
+        </span>
+      </header>
+
+      <!-- ProseMirror 会把 contenteditable 挂载到这里，并带上 .editor-content 类 -->
+      <div class="editor-viewport" id="editor-viewport"></div>
+
+      <footer class="ui-bar ui-bar--status">
+        <span>字符 <b id="stat-characters">0</b></span>
+        <span>词 <b id="stat-words">0</b></span>
+        <span>块 <b id="stat-blocks">0</b></span>
+        <span class="ui-bar__hint" id="hint-bar">
+          Ctrl/Cmd + F 查找 · H 替换 · B 粗体 · K 链接 · Alt+T 表格 · S 保存
+        </span>
+      </footer>
+    </div>
+
+  </body>
+</html>
