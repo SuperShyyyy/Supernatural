@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["prototype/src", "vite.config.ts"]
+  "include": ["src", "test", "prototype/src", "vite.config.ts"]
 }
