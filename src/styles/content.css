@@ -1,0 +1,94 @@
+/* 内容排版。所有尺寸用 em（相对 .editor-content 的字号），
+   因此缩放只改一个 font-size，整篇排版等比变化。 */
+
+.editor-content p,
+.editor-content ul,
+.editor-content ol,
+.editor-content blockquote,
+.editor-content pre,
+.editor-content table {
+  margin-block: 0 1em;
+}
+
+.editor-content h1,
+.editor-content h2,
+.editor-content h3,
+.editor-content h4,
+.editor-content h5,
+.editor-content h6 {
+  margin-block: 1.6em 0.6em;
+  line-height: 1.3;
+  font-weight: 650;
+}
+
+.editor-content h1 {
+  font-size: 1.9em;
+}
+.editor-content h2 {
+  font-size: 1.55em;
+}
+.editor-content h3 {
+  font-size: 1.3em;
+}
+.editor-content h4 {
+  font-size: 1.12em;
+}
+.editor-content h5 {
+  font-size: 1em;
+}
+.editor-content h6 {
+  font-size: 0.95em;
+  color: var(--muted-color);
+}
+
+.editor-content > h1:first-child,
+.editor-content > h2:first-child {
+  margin-block-start: 0;
+}
+
+.editor-content a {
+  color: var(--accent-color);
+}
+
+.editor-content strong {
+  font-weight: 650;
+}
+
+.editor-content hr {
+  margin-block: 2em;
+  border: 0;
+  border-block-start: 1px solid var(--border-color);
+}
+
+.editor-content ul,
+.editor-content ol {
+  padding-inline-start: 1.6em;
+}
+
+.editor-content li {
+  margin-block: 0.25em;
+}
+
+.editor-content li::marker {
+  color: var(--muted-color);
+}
+
+.editor-content blockquote {
+  margin-inline: 0;
+  padding-inline-start: 1em;
+  border-inline-start: 0.25em solid var(--quote-border);
+  color: var(--muted-color);
+}
+
+.editor-content code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.15em 0.35em;
+  border-radius: var(--ui-radius);
+  background: var(--code-bg);
+}
+
+/* 超长不可断字符串（URL / 无空格长串）必须断行，而不是把列顶宽 */
+.editor-content .md-long-token {
+  overflow-wrap: anywhere;
+}

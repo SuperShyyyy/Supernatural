@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>md-editer</title>
+  </head>
+
+  <body>
+    <!-- 应用外壳：自身不滚动（见 styles/layout.css 的四层约束） -->
+    <div class="app" id="app">
+      <header class="ui-bar">
+        <span class="ui-bar__title">md-editer</span>
+        <span class="ui-bar__file" id="doc-name">未命名.md</span>
+        <span class="ui-group ui-group--end">
+          <span class="ui-label" id="save-status"></span>
+        </span>
+      </header>
+
+      <!-- ProseMirror 会把 contenteditable 挂载到这里，并带上 .editor-content 类 -->
+      <div class="editor-viewport" id="editor-viewport"></div>
+
+      <footer class="ui-bar ui-bar--status">
+        <span>字符 <b id="stat-characters">0</b></span>
+        <span>词 <b id="stat-words">0</b></span>
+        <span>块 <b id="stat-blocks">0</b></span>
+        <span class="ui-bar__hint">
+          Ctrl/Cmd + B 粗体 · I 斜体 · E 行内代码 · 1–6 标题 · Shift+8/9 列表 · S 保存
+        </span>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

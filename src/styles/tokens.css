@@ -1,0 +1,69 @@
+/**
+ * Design tokens.
+ *
+ * 三条互相独立的尺度，任何情况下都不混用：
+ *   1. --ui-scale      应用 UI（工具栏/菜单/状态栏），固定 px，不随编辑器缩放变化
+ *   2. --editor-zoom   只作用于 .editor-content 的 font-size（编辑区缩放）
+ *   3. --sim-viewport  仅用于 Prototype 模拟窗口宽度，真实项目里不存在
+ *
+ * 设备像素比（devicePixelRatio）不参与任何计算：缩放必须在 CSS px 空间里完成，
+ * 否则 ProseMirror 的坐标映射（coordsAtPos / posAtCoords）会被污染。
+ */
+:root {
+  color-scheme: light;
+
+  /* ---------- App UI ---------- */
+  --ui-scale: 1;
+  --ui-font-size: calc(13px * var(--ui-scale));
+  --ui-bar-height: calc(38px * var(--ui-scale));
+  --ui-gap: calc(8px * var(--ui-scale));
+  --ui-radius: 6px;
+
+  /* ---------- Editor zoom ---------- */
+  --editor-zoom: 1;
+  --content-font-size: 16px;
+  --content-scaled-font-size: calc(var(--content-font-size) * var(--editor-zoom));
+
+  /* ---------- Content column ---------- */
+  /* 理想宽度用 em（相对内容自身字号）→ 随缩放等比放大，保持每行字符数 */
+  --content-max: 46em;
+  /* 最小宽度用 ch（同样随缩放），保证极窄视口下仍可读 */
+  --content-min: 22ch;
+  /* 视口留白只跟随视口，不跟随编辑器缩放 */
+  --viewport-gutter: clamp(16px, 4vw, 72px);
+  --content-line-height: 1.7;
+
+  /* ---------- Typography ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* ---------- Colors (light) ---------- */
+  --desk-color: #eceef1;
+  --bg-color: #ffffff;
+  --text-color: #24292f;
+  --muted-color: #6b7280;
+  --border-color: #e5e7eb;
+  --code-bg: #f6f8fa;
+  --editor-bg: #ffffff;
+  --quote-border: #d0d7de;
+  --accent-color: #4b8bf4;
+  --danger-color: #d9534f;
+  --ok-color: #2f9e63;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --desk-color: #16181c;
+  --bg-color: #1b1f24;
+  --text-color: #d7dde5;
+  --muted-color: #8b95a3;
+  --border-color: #2b313a;
+  --code-bg: #14181d;
+  --editor-bg: #1b1f24;
+  --quote-border: #3a424e;
+  --accent-color: #6aa2ff;
+  --danger-color: #e06c6a;
+  --ok-color: #4cc38a;
+}

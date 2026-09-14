@@ -1,0 +1,101 @@
+/**
+ * 三类"危险块"的溢出策略（Phase 0 Prototype 已验证）。
+ * 共同前提：max-inline-size: 100% + min-inline-size: 0（绝不顶开内容列）。
+ *
+ *   代码块 → 内部横向滚动（保留原始换行语义）
+ *   表格   → 先自动适配并换行，min-content 仍过宽时内部横向滚动（Phase 2）
+ *   图片   → 收缩（不产生滚动条）（Phase 2）
+ */
+
+/* ---------- 代码块 ---------- */
+/* 直接给 pre 加约束，而不是再包一层 div：少一个 DOM 层级，
+   也避免 parseDOM 需要额外处理包装元素。 */
+.editor-content pre {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin-block: 0 1em;
+  padding: 0.9em 1em;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--code-bg);
+  /* 长行不换行，由自身横向滚动消化 */
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+/* 覆盖 content.css 里行内 code 的样式 */
+.editor-content pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: inherit;
+}
+
+/* ---------- 表格（Phase 2 起使用，规则先就位） ---------- */
+.md-table-scroll {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.md-table-scroll table {
+  border-collapse: collapse;
+  /* 不设 width:100%：让表格按内容收缩（shrink-to-fit），
+     单元格过长时换行，只有 min-content 仍超过列宽时才触发内部滚动 */
+  font-size: 0.95em;
+}
+
+.md-table-scroll th,
+.md-table-scroll td {
+  padding: 0.4em 0.7em;
+  border: 1px solid var(--border-color);
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.md-table-scroll th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+/* ---------- 图片（Phase 2 起使用） ---------- */
+.md-figure {
+  max-inline-size: 100%;
+  margin-inline: auto;
+}
+
+.md-figure img {
+  display: block;
+  /* 原始尺寸显示，超过列宽时等比收缩，绝不拉伸 */
+  max-inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--ui-radius);
+}
+
+.md-figure figcaption {
+  margin-block-start: 0.5em;
+  color: var(--muted-color);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* ---------- 数学公式（Phase 2 起使用） ---------- */
+.md-math {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.md-math__body {
+  display: block;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}

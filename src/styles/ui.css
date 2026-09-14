@@ -1,0 +1,55 @@
+/* 应用外壳 UI（顶部栏 / 状态栏）。尺寸全部用 px，不随 --editor-zoom 变化。 */
+
+.ui-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-gap);
+  min-block-size: var(--ui-bar-height);
+  padding-inline: var(--ui-gap);
+  border-block-end: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--muted-color);
+  font-size: var(--ui-font-size);
+  user-select: none;
+}
+
+.ui-bar--status {
+  border-block-end: 0;
+  border-block-start: 1px solid var(--border-color);
+  gap: calc(var(--ui-gap) * 2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-bar--status b {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.ui-bar__title {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.ui-bar__file {
+  padding-inline-start: var(--ui-gap);
+  border-inline-start: 1px solid var(--border-color);
+}
+
+.ui-bar__hint {
+  margin-inline-start: auto;
+  opacity: 0.75;
+}
+
+.ui-group {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-gap);
+}
+
+.ui-group--end {
+  margin-inline-start: auto;
+}
+
+.ui-label {
+  white-space: nowrap;
+}
