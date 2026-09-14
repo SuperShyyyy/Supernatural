@@ -50,6 +50,23 @@ async function readFileByPath(filePath) {
   return { name: path.basename(filePath), path: filePath, content };
 }
 
+/** 从命令行参数里挑出第一个 Markdown 文件（.desktop 用 %U / %f 传进来的路径）。 */
+const MD_EXT = ['.md', '.markdown', '.mdown', '.txt'];
+function fileArgFromArgv(argv) {
+  return (argv || []).find((a) => MD_EXT.includes(path.extname(a || '').toLowerCase()));
+}
+
+/** 读取并加载某个文件：加入最近文件、通知渲染进程打开。 */
+async function openFileAt(filePath) {
+  try {
+    const doc = await readFileByPath(filePath);
+    await addRecent({ name: doc.name, path: doc.path });
+    mainWindow?.webContents.send('md-editer:opened', doc);
+  } catch {
+    dialog.showErrorBox('打开失败', `无法读取：${filePath}`);
+  }
+}
+
 function sendAction(action) {
   mainWindow?.webContents.send('md-editer:action', action);
 }
@@ -266,6 +283,10 @@ async function createWindow() {
   await mainWindow.loadURL(`http://127.0.0.1:${port}/`);
   mainWindow.show();
 
+  // 启动时若带 .md 文件路径（如双击文件 / xdg-open），直接打开它
+  const startupFile = fileArgFromArgv(process.argv);
+  if (startupFile) await openFileAt(startupFile);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     server?.close();
@@ -283,10 +304,20 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
     if (mainWindow === null) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
+    // 已运行时再双击文件：把新文件交给当前窗口打开
+    const fileArg = fileArgFromArgv(argv);
+    if (fileArg) void openFileAt(fileArg);
+  });
+
+  // macOS：系统通过 open-file 事件传文件路径
+  app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    if (mainWindow === null) return;
+    void openFileAt(filePath);
   });
 
   void app.whenReady().then(async () => {

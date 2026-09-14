@@ -17,6 +17,7 @@
   "build": {
     "appId": "com.mdediter.app",
     "productName": "md-editer",
+    "icon": "electron/icon.png",
     "files": [
       "electron/**",
       "scripts/**",
