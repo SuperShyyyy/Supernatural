@@ -61,6 +61,10 @@ export class FileSystemAccessAdapter implements FileSystemAdapter {
     return this.#read(handle);
   }
 
+  async openRef(ref: string | FileSystemFileHandle): Promise<DocumentSource | null> {
+    return typeof ref === 'string' ? null : this.openHandle(ref);
+  }
+
   async save(source: DocumentSource): Promise<void> {
     const handle = this.#handle;
     if (handle !== null && (await ensurePermission(handle, 'readwrite'))) {

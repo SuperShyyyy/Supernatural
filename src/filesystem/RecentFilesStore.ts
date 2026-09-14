@@ -14,7 +14,10 @@ const MAX_ENTRIES = 10;
 export interface RecentFileEntry {
   readonly name: string;
   readonly updatedAt: number;
-  readonly handle?: FileSystemFileHandle;
+  /** 浏览器（File System Access）用句柄重开 */
+  readonly handle?: FileSystemFileHandle | undefined;
+  /** Electron 用路径重开 */
+  readonly path?: string | undefined;
 }
 
 export class RecentFilesStore {

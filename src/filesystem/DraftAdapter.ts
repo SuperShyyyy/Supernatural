@@ -1,5 +1,9 @@
 import type { DocumentSource, FileSystemAdapter } from './FileSystemAdapter';
-import type { FileSystemAccessAdapter } from './FileSystemAccessAdapter';
+
+/** 已经绑定到某个真实文件的适配器（浏览器用句柄、Electron 用路径）。 */
+export interface FileBackedAdapter extends FileSystemAdapter {
+  readonly hasHandle: boolean;
+}
 
 /**
  * 自动保存的落点选择：
@@ -11,10 +15,10 @@ import type { FileSystemAccessAdapter } from './FileSystemAccessAdapter';
 export class DraftAdapter implements FileSystemAdapter {
   readonly id = 'draft-aware';
 
-  readonly #file: FileSystemAccessAdapter;
+  readonly #file: FileBackedAdapter;
   readonly #draft: FileSystemAdapter;
 
-  constructor(file: FileSystemAccessAdapter, draft: FileSystemAdapter) {
+  constructor(file: FileBackedAdapter, draft: FileSystemAdapter) {
     this.#file = file;
     this.#draft = draft;
   }

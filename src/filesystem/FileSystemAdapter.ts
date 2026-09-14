@@ -19,4 +19,10 @@ export interface FileSystemAdapter {
   save(source: DocumentSource): Promise<void>;
   /** 另存为新文档，返回最终使用的文件名；取消时返回 null。 */
   saveAs(source: DocumentSource): Promise<string | null>;
+  /**
+   * 用宿主自己的"文件引用"重新打开（最近文件用）：
+   * Electron 传路径字符串，浏览器传 FileSystemFileHandle。
+   * 传错类型或宿主不支持时返回 null。
+   */
+  openRef?(ref: string | FileSystemFileHandle): Promise<DocumentSource | null>;
 }

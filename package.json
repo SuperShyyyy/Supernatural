@@ -3,8 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Desktop-grade Markdown editor (Typora-like). Phase 0: Layout / Zoom prototype.",
+  "description": "Desktop-grade Markdown editor (Typora-like).",
+  "main": "electron/main.js",
   "scripts": {
+    "electron": "npm run package && electron .",
+    "electron:dist": "npm run package && electron-builder",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
@@ -12,6 +15,7 @@
     "package": "vite build && node scripts/package.mjs"
   },
   "devDependencies": {
+    "electron": "^44.3.0",
     "jsdom": "^30.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
