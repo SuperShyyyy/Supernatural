@@ -43,12 +43,29 @@ npm run build
 
 ## 打包与安装
 
+### 浏览器 / 网页版（零依赖）
+
 ```bash
 npm run package              # 生成 build/md-editer（app + 零依赖服务器 + start.sh）
 cd build/md-editer && ./start.sh   # 直接运行（默认 http://127.0.0.1:8321/）
-
-# 安装到 /opt（需要 sudo 密码）
-bash scripts/install-opt.sh
+bash scripts/install-opt.sh        # 安装到 /opt（需 sudo）
 ```
 
-已放置的副本：`~/桌面/md-editer` + 桌面启动器 `~/桌面/md-editer.desktop`。
+### 桌面应用（Electron 原生窗口）
+
+编辑器核心（src/core、src/markdown）完全不依赖 Electron；Electron 外壳只是宿主，
+通过 `ElectronAdapter`（`FileSystemAdapter` 接口）读写真实文件，原生菜单把动作转发给同一份命令注册表。
+
+```bash
+npm run electron            # 先打包再启动原生窗口（开发期）
+npm run electron:dist       # 用 electron-builder 产出可分发包
+                            #   → dist-electron/md-editer-<ver>.AppImage（Linux）
+                            #   → dist-electron/linux-unpacked/（解包目录）
+```
+
+产物：
+
+- `/opt/md-editer/md-editer.AppImage` — 双击即用的桌面应用（真实文件读写、最近文件、原生菜单）
+- `~/桌面/md-editer.AppImage` + 启动器 `~/桌面/md-editer.desktop`（指向 /opt 的 AppImage）
+
+> Electron 二进制下载走国内镜像（`ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`）以加速安装。
