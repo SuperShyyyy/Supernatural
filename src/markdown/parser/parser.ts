@@ -9,17 +9,22 @@
  */
 
 import MarkdownIt, { type Token } from 'markdown-it';
+import texmath from 'markdown-it-texmath';
 import type { Mark, MarkType, Node as PMNode, Schema } from 'prosemirror-model';
 
 import { headingLevelOf, markdownSchema } from '../../core/document/schema';
 import { requireMarkType, requireNodeType } from '../../core/document/nodeTypes';
 
+/**
+ * 只用 markdown-it 做词法/语法分析，从不使用它的 renderer —— 渲染交给 ProseMirror。
+ * texmath 提供 $...$ 与 $$...$$ 的 token（行内公式在 Phase 2 起支持）。
+ */
 const tokenizer = new MarkdownIt({
   html: false,
   linkify: false,
   typographer: false,
   breaks: false,
-});
+}).use(texmath);
 
 interface BlockResult {
   readonly nodes: readonly PMNode[];
@@ -89,8 +94,28 @@ function parseBlocks(
 
       case 'fence': {
         // fence 是单 token：content 为代码正文（含尾部换行），info 为语言
-        nodes.push(createCodeBlock(schema, stripTrailingNewline(token.content), token.info.trim()));
+        const params = token.info.trim();
+        if (params === 'mermaid') {
+          nodes.push(
+            requireNodeType(schema, 'diagram').createChecked({ code: stripTrailingNewline(token.content) }),
+          );
+        } else {
+          nodes.push(createCodeBlock(schema, stripTrailingNewline(token.content), params));
+        }
         index += 1;
+        break;
+      }
+
+      case 'math_block': {
+        nodes.push(requireNodeType(schema, 'math_block').createChecked({ latex: token.content.trim() }));
+        index += 1;
+        break;
+      }
+
+      case 'table_open': {
+        const table = parseTable(schema, tokens, index);
+        nodes.push(table.node);
+        index = table.next;
         break;
       }
 
@@ -190,6 +215,82 @@ function findClose(tokens: readonly Token[], openIndex: number, closeType: strin
   return tokens.length - 1;
 }
 
+/**
+ * GFM 表格：table > table_row > (table_header | table_cell)。
+ * 单元格内容按 inline 处理（GFM 单元格里没有块级结构）。
+ */
+function parseTable(schema: Schema, tokens: readonly Token[], open: number): { node: PMNode; next: number } {
+  const close = findClose(tokens, open, 'table_close');
+  const tableType = requireNodeType(schema, 'table');
+  const rowType = requireNodeType(schema, 'table_row');
+  const headerType = requireNodeType(schema, 'table_header');
+  const cellType = requireNodeType(schema, 'table_cell');
+  const rows: PMNode[] = [];
+
+  let index = open + 1;
+  while (index < close) {
+    const token = tokens[index];
+    if (token === undefined) break;
+    if (token.type !== 'tr_open') {
+      index += 1;
+      continue;
+    }
+
+    const rowClose = findClose(tokens, index, 'tr_close');
+    const cells: PMNode[] = [];
+    let cursor = index + 1;
+
+    while (cursor < rowClose) {
+      const cellToken = tokens[cursor];
+      if (cellToken === undefined) break;
+      if (cellToken.type !== 'th_open' && cellToken.type !== 'td_open') {
+        cursor += 1;
+        continue;
+      }
+      const isHeader = cellToken.type === 'th_open';
+      const cellClose = findClose(tokens, cursor, isHeader ? 'th_close' : 'td_close');
+      const content = parseInline(schema, tokens.slice(cursor + 1, cellClose));
+      cells.push(
+        (isHeader ? headerType : cellType).createChecked({ align: readAlign(cellToken) }, content),
+      );
+      cursor = cellClose + 1;
+    }
+
+    rows.push(rowType.createChecked(null, cells));
+    index = rowClose + 1;
+  }
+
+  return { node: tableType.createChecked(null, rows), next: close + 1 };
+}
+
+/**
+ * 图片 attrs。宽度借用 title 通道存放（`![alt](src "width=300")`）：
+ * Markdown 图片的标题本身极少使用，用它承载宽度可以做到纯文本往返而无需扩展语法。
+ */
+function readImageAttrs(token: Token): { src: string; alt: string; title: string; width: number | null } {
+  const title = stringAttr(token, 'title');
+  const widthMatch = /(?:^|\s)width=(\d+)(?:\s|$)/.exec(title);
+  const width = widthMatch === null ? null : Number(widthMatch[1]);
+  return {
+    src: stringAttr(token, 'src'),
+    alt: token.content,
+    title: width === null ? title : title.replace(widthMatch?.[0] ?? '', '').trim(),
+    width: width !== null && Number.isFinite(width) && width > 0 ? width : null,
+  };
+}
+
+/** GFM 对齐写在 th/td 的 style 属性里（`text-align:center`）。 */
+function readAlign(token: Token): string | null {
+  const style = stringAttr(token, 'style');
+  const match = /text-align:\s*(left|center|right)/.exec(style);
+  return match === null ? null : (match[1] ?? null);
+}
+
+function stringAttr(token: Token, name: string): string {
+  const value = token.attrGet(name);
+  return value === null || value === undefined ? '' : String(value);
+}
+
 /* ------------------------------- inline 层 ------------------------------- */
 
 function parseInline(schema: Schema, tokens: readonly Token[]): readonly PMNode[] {
@@ -208,6 +309,31 @@ function parseInline(schema: Schema, tokens: readonly Token[]): readonly PMNode[
 
       case 'code_inline':
         pushText(schema, nodes, token.content, [...marks, requireMarkType(schema, 'code').create()]);
+        break;
+
+      case 'image': {
+        const attrs = readImageAttrs(token);
+        nodes.push(requireNodeType(schema, 'image').createChecked(attrs, null, [...marks]));
+        break;
+      }
+
+      case 'math_inline':
+        nodes.push(
+          requireNodeType(schema, 'math_inline').createChecked({ latex: token.content }, null, [...marks]),
+        );
+        break;
+
+      case 'link_open':
+        marks.push(
+          requireMarkType(schema, 'link').create({
+            href: stringAttr(token, 'href'),
+            title: stringAttr(token, 'title'),
+          }),
+        );
+        break;
+
+      case 'link_close':
+        dropMark(marks, requireMarkType(schema, 'link'));
         break;
 
       case 'strong_open':

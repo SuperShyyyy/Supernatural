@@ -36,6 +36,30 @@ export function hello(name: string): string {
 }
 \`\`\`
 
+## 富内容
+
+| 功能 | 快捷键 | 说明 |
+| --- | --- | --- |
+| 图片 | \`Ctrl/Cmd + Alt + I\` | 拖动右下角把手可调整宽度 |
+| 表格 | \`Ctrl/Cmd + Alt + T\` | 在表格内按 \`Tab\` 跳到下一格 |
+| 链接 | \`Ctrl/Cmd + K\` | 有选区则加链接，无选区则插入 URL |
+
+行内公式：$a^2 + b^2 = c^2$
+
+块级公式：
+
+$$
+\\int_0^1 x^2\\,dx = \\frac{1}{3}
+$$
+
+![示例图片](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='160'><rect width='100%' height='100%' fill='%234b8bf4'/><text x='50%' y='50%' fill='white' font-size='26' text-anchor='middle' dominant-baseline='middle'>示例图片（可拖动右下角调整宽度）</text></svg>)
+
+\`\`\`mermaid
+graph LR
+  A[Markdown] --> B[Document Model]
+  B --> C[Editor View]
+\`\`\`
+
 ---
 
 随意修改：内容会自动保存到浏览器本地，刷新后仍在。

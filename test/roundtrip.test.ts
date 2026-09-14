@@ -25,6 +25,14 @@ const IDEMPOTENT_CASES: readonly string[] = [
   '~~~\nplain fence\n~~~\n',
   '- 列表项\n\n  列表项第二段\n',
   '包含 \\* 转义与 _下划线_ 的段落\n',
+  '| 列一 | 列二 |\n| --- | --- |\n| a | b |\n',
+  '![alt](img.png "width=300")\n',
+  '![alt](img.png "标题")\n',
+  '[ProseMirror](https://prosemirror.net)\n',
+  '[带标题的链接](https://example.com "标题")\n',
+  '行内 $a^2$ 公式\n',
+  '$$\nE = mc^2\n$$\n',
+  '```mermaid\ngraph LR\n  A --> B\n```\n',
 ];
 
 describe('markdown 往返', () => {
@@ -68,6 +76,41 @@ describe('markdown 往返', () => {
     const once = roundTrip('# 不是标题的段落\n');
     expect(roundTrip(once)).toBe(once);
     expect(roundTrip('\\# 不是标题的段落\n')).toBe('\\# 不是标题的段落\n');
+  });
+
+  it('图片宽度通过 title 通道往返', () => {
+    const source = '![alt](img.png "width=300")\n';
+    expect(roundTrip(source)).toBe(source);
+    const doc = parseMarkdown(source);
+    expect(doc.firstChild?.firstChild?.type.name).toBe('image');
+    expect(doc.firstChild?.firstChild?.attrs['width']).toBe(300);
+  });
+
+  it('表格解析为语义结构（表头行用 th）', () => {
+    const doc = parseMarkdown('| A | B |\n| --- | --- |\n| 1 | 2 |\n');
+    const table = doc.firstChild;
+    expect(table?.type.name).toBe('table');
+    expect(table?.childCount).toBe(2);
+    expect(table?.child(0).child(0).type.name).toBe('table_header');
+    expect(table?.child(1).child(0).type.name).toBe('table_cell');
+  });
+
+  it('公式与图表是原子节点，内容不参与普通文本转义', () => {
+    const doc = parseMarkdown('$$\n\\frac{1}{2}\n$$\n');
+    expect(doc.firstChild?.type.name).toBe('math_block');
+    expect(doc.firstChild?.attrs['latex']).toBe('\\frac{1}{2}');
+
+    const diagram = parseMarkdown('```mermaid\ngraph LR\n  A --> B\n```\n').firstChild;
+    expect(diagram?.type.name).toBe('diagram');
+    expect(diagram?.attrs['code']).toBe('graph LR\n  A --> B');
+  });
+
+  it('链接是 mark，不影响文本本身', () => {
+    const doc = parseMarkdown('[文字](https://e.com)\n');
+    const textNode = doc.firstChild?.firstChild;
+    expect(textNode?.text).toBe('文字');
+    expect(textNode?.marks[0]?.type.name).toBe('link');
+    expect(textNode?.marks[0]?.attrs['href']).toBe('https://e.com');
   });
 
   it('文档结构映射到语义节点而非可见标记', () => {

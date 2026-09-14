@@ -9,6 +9,9 @@ import './styles/content.css';
 import './styles/blocks.css';
 import './styles/editor.css';
 
+import 'katex/dist/katex.min.css';
+import 'prosemirror-tables/style/tables.css';
+
 import { startApp } from './app/app';
 
 const root = document.querySelector('#app');

@@ -1,12 +1,12 @@
 /**
  * Document Model → Markdown。
  *
- * 与 parser 成对演进：所有标记偏好（bullet / order / tight / params）来自节点 attrs，
+ * 与 parser 成对演进：所有标记偏好（bullet / order / tight / params / width）来自节点 attrs，
  * 因此 `md → doc → md` 的第一次输出可能做规范化（如 `_em_` → `*em*`），
  * 但第二次输出必须与之完全一致（幂等），这条契约由测试锁住。
  */
 
-import type { Node as PMNode } from 'prosemirror-model';
+import type { Mark, Node as PMNode } from 'prosemirror-model';
 
 import { headingLevelOf } from '../../core/document/schema';
 import { escapeBlockStart, escapeInline, fenceCodeBlock, fenceInlineCode } from './escape';
@@ -40,6 +40,15 @@ function serializeBlock(node: PMNode): string | null {
 
     case 'code_block':
       return fenceCodeBlock(node.textContent, stringAttr(node, 'params', ''));
+
+    case 'diagram':
+      return fenceCodeBlock(stringAttr(node, 'code', ''), 'mermaid');
+
+    case 'math_block':
+      return `$$\n${stringAttr(node, 'latex', '')}\n$$`;
+
+    case 'table':
+      return serializeTable(node);
 
     case 'bullet_list':
     case 'ordered_list':
@@ -89,6 +98,50 @@ function indentContinuation(text: string, pad: string): string {
     .join('\n');
 }
 
+function serializeTable(table: PMNode): string {
+  const rows: string[][] = [];
+  let aligns: readonly (string | null)[] = [];
+
+  table.forEach((row, _offset, index) => {
+    const cells: string[] = [];
+    row.forEach((cell) => cells.push(serializeInline(cell)));
+    // GFM 的对齐信息只在分隔行出现一次，取表头行的 align 即可
+    if (index === 0) aligns = readRowAligns(row);
+    rows.push(cells);
+  });
+
+  if (rows.length === 0) return '';
+
+  const widths = rows.reduce<number[]>(
+    (acc, cells) => cells.map((cell, i) => Math.max(acc[i] ?? 0, cell.length)),
+    [],
+  );
+  const rule = `| ${widths
+    .map((width, i) => alignmentRule(aligns[i] ?? null, width))
+    .join(' | ')} |`;
+  const lines = rows.map(
+    (cells) => `| ${cells.map((cell, i) => cell.padEnd(widths[i] ?? cell.length)).join(' | ')} |`,
+  );
+
+  return [lines[0] ?? '', rule, ...lines.slice(1)].join('\n');
+}
+
+function readRowAligns(row: PMNode): (string | null)[] {
+  const aligns: (string | null)[] = [];
+  row.forEach((cell) => {
+    const align = cell.attrs['align'];
+    aligns.push(typeof align === 'string' && align.length > 0 ? align : null);
+  });
+  return aligns;
+}
+
+function alignmentRule(align: string | null, width: number): string {
+  if (align === null) return '-'.repeat(Math.max(3, width));
+  const dashes = '-'.repeat(Math.max(1, Math.max(3, width) - 2));
+  if (align === 'center') return `:${dashes}:`;
+  return align === 'right' ? `${dashes}:` : `:${dashes}`;
+}
+
 function serializeInline(parent: PMNode): string {
   let out = '';
 
@@ -99,29 +152,65 @@ function serializeInline(parent: PMNode): string {
     }
 
     const hasCodeMark = child.marks.some((mark) => mark.type.name === 'code');
-    const raw = child.isText ? (child.text ?? '') : serializeInline(child);
-    let text = hasCodeMark ? raw : escapeInline(raw);
+    const text = child.isText
+      ? hasCodeMark
+        ? (child.text ?? '')
+        : escapeInline(child.text ?? '')
+      : serializeInlineNode(child);
 
-    for (const mark of child.marks) {
-      text = wrapMark(mark.type.name, text);
-    }
-    out += text;
+    out += applyMarks(text, child.marks);
   });
 
   return out;
 }
 
-function wrapMark(name: string, text: string): string {
-  switch (name) {
+function serializeInlineNode(node: PMNode): string {
+  switch (node.type.name) {
+    case 'image':
+      return serializeImage(node);
+    case 'math_inline':
+      return `$${stringAttr(node, 'latex', '')}$`;
+    default:
+      return serializeInline(node);
+  }
+}
+
+function serializeImage(node: PMNode): string {
+  const alt = escapeInline(stringAttr(node, 'alt', ''));
+  const src = stringAttr(node, 'src', '');
+  const width = node.attrs['width'];
+  const title =
+    typeof width === 'number' && width > 0 ? `width=${width}` : stringAttr(node, 'title', '');
+  const titlePart = title.length > 0 ? ` "${title}"` : '';
+  return `![${alt}](${src}${titlePart})`;
+}
+
+function applyMarks(text: string, marks: readonly Mark[]): string {
+  return marks.reduce((acc, mark) => wrapMark(acc, mark), text);
+}
+
+function wrapMark(text: string, mark: Mark): string {
+  switch (mark.type.name) {
     case 'strong':
       return `**${text}**`;
     case 'em':
       return `*${text}*`;
     case 'code':
       return fenceInlineCode(text);
+    case 'link': {
+      const href = stringAttrOfMark(mark, 'href');
+      const title = stringAttrOfMark(mark, 'title');
+      const titlePart = title.length > 0 ? ` "${title}"` : '';
+      return `[${text}](${href}${titlePart})`;
+    }
     default:
       return text;
   }
+}
+
+function stringAttrOfMark(mark: Mark, name: string): string {
+  const value = mark.attrs[name];
+  return typeof value === 'string' ? value : '';
 }
 
 function stringAttr(node: PMNode, name: string, fallback: string): string {

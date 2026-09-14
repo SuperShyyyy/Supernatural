@@ -65,13 +65,14 @@
   font-weight: 600;
 }
 
-/* ---------- 图片（Phase 2 起使用） ---------- */
-.md-figure {
+/* ---------- 图片（含尺寸调整） ---------- */
+.md-image {
+  position: relative;
+  display: inline-block;
   max-inline-size: 100%;
-  margin-inline: auto;
 }
 
-.md-figure img {
+.md-image img {
   display: block;
   /* 原始尺寸显示，超过列宽时等比收缩，绝不拉伸 */
   max-inline-size: 100%;
@@ -79,23 +80,98 @@
   border-radius: var(--ui-radius);
 }
 
-.md-figure figcaption {
-  margin-block-start: 0.5em;
-  color: var(--muted-color);
-  font-size: 0.85em;
-  text-align: center;
+/* 尺寸调整把手：absolute 只用于这一个纯装饰元素，不参与任何布局计算 */
+.md-image__handle {
+  position: absolute;
+  inset-block-end: 4px;
+  inset-inline-end: 4px;
+  inline-size: 10px;
+  block-size: 10px;
+  border: 1px solid var(--bg-color);
+  border-radius: 2px;
+  background: var(--accent-color);
+  opacity: 0;
+  cursor: nwse-resize;
+  transition: opacity 120ms ease;
 }
 
-/* ---------- 数学公式（Phase 2 起使用） ---------- */
-.md-math {
+.md-image:hover .md-image__handle,
+.ProseMirror-selectednode .md-image__handle {
+  opacity: 1;
+}
+
+/* ---------- 表格（prosemirror-tables） ---------- */
+.editor-content .tableWrapper {
   max-inline-size: 100%;
   min-inline-size: 0;
+  margin-block: 1em;
+  /* 极宽表格在表格容器内横向滚动，绝不把页面顶宽 */
   overflow-x: auto;
   overscroll-behavior-x: contain;
 }
 
-.md-math__body {
-  display: block;
+.editor-content table {
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.editor-content th,
+.editor-content td {
+  padding: 0.4em 0.7em;
+  border: 1px solid var(--border-color);
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.editor-content th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+
+.editor-content .column-resize-handle {
+  background: var(--accent-color);
+}
+
+/* ---------- 数学公式 ---------- */
+.md-math {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  margin-block: 1em;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.md-math .katex-display {
+  margin: 0;
+}
+
+.md-math-inline {
+  display: inline-block;
+}
+
+/* ---------- Mermaid 图表 ---------- */
+.md-diagram {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  margin-block: 1em;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  text-align: center;
+}
+
+.md-diagram svg {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+.md-diagram--error {
+  padding: 0.8em 1em;
+  border: 1px solid var(--danger-color);
+  border-radius: var(--ui-radius);
+  color: var(--danger-color);
   font-family: var(--font-mono);
-  white-space: nowrap;
+  font-size: 0.9em;
+  text-align: start;
+  white-space: pre-wrap;
 }

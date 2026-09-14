@@ -1,8 +1,9 @@
 /**
  * 快捷键层。
  *
- * 只做"键 → Command"的映射，命令本身来自 prosemirror-commands / prosemirror-schema-list。
- * 使用 PM 的 `Mod-` 前缀统一 Mac(Cmd) 与 Windows/Linux(Ctrl)，避免平台分支散落各处。
+ * 只做"键 → Command"的映射，命令本身来自 prosemirror-commands / prosemirror-schema-list /
+ * prosemirror-tables。使用 PM 的 `Mod-` 前缀统一 Mac(Cmd) 与 Windows/Linux(Ctrl)，
+ * 避免平台分支散落各处。
  */
 
 import { baseKeymap, chainCommands, liftEmptyBlock, newlineInCode, setBlockType, splitBlock, toggleMark, wrapIn } from 'prosemirror-commands';
@@ -11,7 +12,9 @@ import { redo, undo } from 'prosemirror-history';
 import type { NodeType, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
 import type { Command, Plugin } from 'prosemirror-state';
+import { goToNextCell } from 'prosemirror-tables';
 
+import { applyLink, insertImage, insertMathBlock, insertTable } from '../commands/insert';
 import { HEADING_LEVELS } from '../document/schema';
 import { requireMarkType, requireNodeType } from '../document/nodeTypes';
 
@@ -28,6 +31,7 @@ export function createEditorKeymap(schema: Schema): Plugin {
     'Mod-b': toggleMark(requireMarkType(schema, 'strong')),
     'Mod-i': toggleMark(requireMarkType(schema, 'em')),
     'Mod-e': toggleMark(requireMarkType(schema, 'code')),
+    'Mod-k': applyLink,
 
     'Mod-z': undo,
     'Mod-y': redo,
@@ -35,13 +39,17 @@ export function createEditorKeymap(schema: Schema): Plugin {
 
     // 顺序很重要：代码内换行 → 列表项拆分 → 空块提升 → 普通拆分
     Enter: chainCommands(newlineInCode, splitListItem(listItem), liftEmptyBlock, splitBlock),
-    Tab: sinkListItem(listItem),
-    'Shift-Tab': liftListItem(listItem),
+    // 表格内 Tab 走单元格跳转，列表内 Tab 走层级调整
+    Tab: chainCommands(goToNextCell(1), sinkListItem(listItem)),
+    'Shift-Tab': chainCommands(goToNextCell(-1), liftListItem(listItem)),
 
     'Mod-Shift-8': wrapInList(bulletList),
     'Mod-Shift-9': wrapInList(orderedList),
     'Mod-Shift-q': wrapIn(blockquote),
     'Mod-Alt-c': setBlockType(codeBlock),
+    'Mod-Alt-i': insertImage,
+    'Mod-Alt-t': insertTable,
+    'Mod-Alt-m': insertMathBlock,
     'Mod-0': setBlockType(paragraph),
   };
 

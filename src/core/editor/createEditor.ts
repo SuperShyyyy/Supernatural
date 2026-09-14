@@ -2,10 +2,12 @@ import type { Node as PMNode, Schema } from 'prosemirror-model';
 import { EditorState, type Plugin, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { history } from 'prosemirror-history';
+import { columnResizing, tableEditing } from 'prosemirror-tables';
 
 import { parseMarkdown, serializeMarkdown } from '../../markdown';
 import { markdownSchema } from '../document/schema';
 import { createBaseKeymap, createEditorKeymap } from './keymap';
+import { createNodeViews } from './nodeViews';
 
 export interface EditorOptions {
   readonly mount: HTMLElement;
@@ -37,7 +39,13 @@ export function createEditor(options: EditorOptions): Editor {
   const schema = options.schema ?? markdownSchema;
   const onChange = options.onChange;
 
-  const plugins: Plugin[] = [history(), createEditorKeymap(schema), createBaseKeymap()];
+  const plugins: Plugin[] = [
+    history(),
+    columnResizing(),
+    tableEditing(),
+    createEditorKeymap(schema),
+    createBaseKeymap(),
+  ];
 
   const state = EditorState.create({
     schema,
@@ -53,6 +61,7 @@ export function createEditor(options: EditorOptions): Editor {
   const view = new EditorView(options.mount, {
     state,
     attributes: { class: 'editor-content', spellcheck: 'false' },
+    nodeViews: createNodeViews(),
     dispatchTransaction,
   });
 

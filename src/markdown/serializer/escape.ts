@@ -5,8 +5,11 @@
  * 而可读性正是 Markdown 的价值所在。
  */
 
-/** 行内会构成 Markdown 语法的字符。 */
-const INLINE_SPECIALS = /([\\`*_[\]])/g;
+/**
+ * 行内会构成 Markdown 语法的字符。
+ * `$` 也在其中：Phase 2 起 `$...$` 会被解析成公式，字面量美元符号必须转义。
+ */
+const INLINE_SPECIALS = /([\\`*_[\]$])/g;
 
 /** 位于行首时会变成块级语法的字符（段落首字符需要处理）。 */
 const BLOCK_START_SPECIALS = /^(\s*)([#>+-]|\d+\.)/;
