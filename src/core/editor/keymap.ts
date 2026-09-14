@@ -1,61 +1,33 @@
 /**
  * 快捷键层。
  *
- * 只做"键 → Command"的映射，命令本身来自 prosemirror-commands / prosemirror-schema-list /
- * prosemirror-tables。使用 PM 的 `Mod-` 前缀统一 Mac(Cmd) 与 Windows/Linux(Ctrl)，
- * 避免平台分支散落各处。
+ * 键位来自命令注册表（core/commands/registry.ts），这里只补充"与上下文相关"的
+ * 绑定（Enter / Tab 需要按光标所在结构分派），保证一个动作只有一个实现。
  */
 
-import { baseKeymap, chainCommands, liftEmptyBlock, newlineInCode, setBlockType, splitBlock, toggleMark, wrapIn } from 'prosemirror-commands';
+import { baseKeymap, chainCommands, liftEmptyBlock, newlineInCode, splitBlock } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
-import { redo, undo } from 'prosemirror-history';
-import type { NodeType, Schema } from 'prosemirror-model';
-import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
+import type { Schema } from 'prosemirror-model';
+import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import type { Command, Plugin } from 'prosemirror-state';
 import { goToNextCell } from 'prosemirror-tables';
 
-import { applyLink, insertImage, insertMathBlock, insertTable } from '../commands/insert';
-import { HEADING_LEVELS } from '../document/schema';
-import { requireMarkType, requireNodeType } from '../document/nodeTypes';
+import { createCoreRegistry } from '../commands/registry';
+import { requireNodeType } from '../document/nodeTypes';
 
 export function createEditorKeymap(schema: Schema): Plugin {
-  const heading: NodeType = requireNodeType(schema, 'heading');
-  const paragraph = requireNodeType(schema, 'paragraph');
-  const blockquote = requireNodeType(schema, 'blockquote');
-  const codeBlock = requireNodeType(schema, 'code_block');
-  const bulletList = requireNodeType(schema, 'bullet_list');
-  const orderedList = requireNodeType(schema, 'ordered_list');
+  const registry = createCoreRegistry(schema);
   const listItem = requireNodeType(schema, 'list_item');
 
   const bindings: Record<string, Command> = {
-    'Mod-b': toggleMark(requireMarkType(schema, 'strong')),
-    'Mod-i': toggleMark(requireMarkType(schema, 'em')),
-    'Mod-e': toggleMark(requireMarkType(schema, 'code')),
-    'Mod-k': applyLink,
+    ...registry.keymap(),
 
-    'Mod-z': undo,
-    'Mod-y': redo,
-    'Shift-Mod-z': redo,
-
-    // 顺序很重要：代码内换行 → 列表项拆分 → 空块提升 → 普通拆分
+    // 上下文相关：代码内换行 → 列表项拆分 → 空块提升 → 普通拆分
     Enter: chainCommands(newlineInCode, splitListItem(listItem), liftEmptyBlock, splitBlock),
     // 表格内 Tab 走单元格跳转，列表内 Tab 走层级调整
     Tab: chainCommands(goToNextCell(1), sinkListItem(listItem)),
     'Shift-Tab': chainCommands(goToNextCell(-1), liftListItem(listItem)),
-
-    'Mod-Shift-8': wrapInList(bulletList),
-    'Mod-Shift-9': wrapInList(orderedList),
-    'Mod-Shift-q': wrapIn(blockquote),
-    'Mod-Alt-c': setBlockType(codeBlock),
-    'Mod-Alt-i': insertImage,
-    'Mod-Alt-t': insertTable,
-    'Mod-Alt-m': insertMathBlock,
-    'Mod-0': setBlockType(paragraph),
   };
-
-  for (const level of HEADING_LEVELS) {
-    bindings[`Mod-${level}`] = setBlockType(heading, { level });
-  }
 
   return keymap(bindings);
 }

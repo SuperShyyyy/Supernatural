@@ -54,6 +54,29 @@
   white-space: nowrap;
 }
 
+/* ---------- 菜单栏 ---------- */
+.ui-menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: var(--ui-gap);
+}
+
+.ui-menu__button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: none;
+  color: var(--muted-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ui-menu__button:hover {
+  background: var(--code-bg);
+  color: var(--text-color);
+}
+
 /* ---------- 下拉菜单（最近文件） ---------- */
 .ui-menu {
   position: relative;
@@ -79,7 +102,10 @@
 }
 
 .ui-menu__item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   inline-size: 100%;
   padding: 6px 12px;
   border: 0;
@@ -101,4 +127,126 @@
 .ui-menu__empty {
   padding: 6px 12px;
   opacity: 0.7;
+}
+
+.ui-menu__keys {
+  color: var(--muted-color);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+/* ---------- 查找 / 替换面板 ---------- */
+.search-panel {
+  position: fixed;
+  inset-block-start: calc(var(--ui-bar-height) + 8px);
+  inset-inline-end: 16px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-inline-size: min(560px, calc(100vw - 32px));
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 16%);
+  font-size: var(--ui-font-size);
+}
+
+.search-panel[hidden] {
+  display: none;
+}
+
+.search-panel__input {
+  inline-size: 140px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--editor-bg);
+  color: var(--text-color);
+  font: inherit;
+}
+
+.search-panel__input:focus {
+  outline: 1px solid var(--accent-color);
+}
+
+.search-panel__count {
+  min-inline-size: 5ch;
+  text-align: center;
+  color: var(--muted-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.search-panel__btn {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+.search-panel__btn:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.search-panel__divider {
+  inline-size: 1px;
+  block-size: 18px;
+  background: var(--border-color);
+}
+
+/* ---------- 对话框（快捷键） ---------- */
+.dialog {
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-sans);
+  font-size: var(--ui-font-size);
+  max-block-size: 80vh;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+.dialog h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.dialog__list {
+  display: grid;
+  gap: 4px;
+  max-block-size: 55vh;
+  overflow: auto;
+  margin-block-end: 12px;
+}
+
+.dialog__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+  padding-block: 2px;
+}
+
+.dialog__row kbd {
+  color: var(--muted-color);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.dialog__close {
+  padding: 5px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--ui-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font: inherit;
+  cursor: pointer;
 }

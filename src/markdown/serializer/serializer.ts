@@ -14,7 +14,8 @@ import { escapeBlockStart, escapeInline, fenceCodeBlock, fenceInlineCode } from 
 const BLOCK_SEPARATOR = '\n\n';
 
 export function serializeMarkdown(doc: PMNode): string {
-  const blocks = serializeChildren(doc);
+  // 空段落不对应任何 Markdown 文本（它就是源码里的空行），序列化时丢弃
+  const blocks = serializeChildren(doc).filter((block) => block.length > 0);
   return blocks.length === 0 ? '' : `${blocks.join(BLOCK_SEPARATOR)}\n`;
 }
 

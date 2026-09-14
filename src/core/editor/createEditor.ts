@@ -7,7 +7,9 @@ import { columnResizing, tableEditing } from 'prosemirror-tables';
 import { parseMarkdown, serializeMarkdown } from '../../markdown';
 import { markdownSchema } from '../document/schema';
 import { createBaseKeymap, createEditorKeymap } from './keymap';
+import { createMarkdownInputRules } from './inputRules';
 import { createNodeViews } from './nodeViews';
+import { createSearchPlugin } from './search';
 
 export interface EditorOptions {
   readonly mount: HTMLElement;
@@ -43,6 +45,8 @@ export function createEditor(options: EditorOptions): Editor {
     history(),
     columnResizing(),
     tableEditing(),
+    createMarkdownInputRules(schema),
+    createSearchPlugin(),
     createEditorKeymap(schema),
     createBaseKeymap(),
   ];

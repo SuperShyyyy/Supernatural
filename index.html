@@ -11,19 +11,12 @@
     <div class="app" id="app">
       <header class="ui-bar">
         <span class="ui-bar__title">md-editer</span>
-
-        <button type="button" class="ui-btn ui-btn--text" id="btn-new">新建</button>
-        <button type="button" class="ui-btn ui-btn--text" id="btn-open">打开</button>
-        <button type="button" class="ui-btn ui-btn--text" id="btn-save-as">另存为</button>
-
-        <div class="ui-menu">
-          <button type="button" class="ui-btn ui-btn--text" id="btn-recent">最近</button>
-          <div class="ui-menu__list" id="recent-list" hidden></div>
-        </div>
+        <nav class="ui-menubar" id="menubar"></nav>
 
         <span class="ui-bar__file" id="doc-name">未命名.md</span>
 
         <span class="ui-group ui-group--end">
+          <span class="ui-label" id="zoom-value">100%</span>
           <span class="ui-label" id="save-status"></span>
         </span>
       </header>
@@ -36,7 +29,7 @@
         <span>词 <b id="stat-words">0</b></span>
         <span>块 <b id="stat-blocks">0</b></span>
         <span class="ui-bar__hint" id="hint-bar">
-          Ctrl/Cmd + B 粗体 · I 斜体 · K 链接 · 1–6 标题 · Shift+8/9 列表 · Alt+T 表格 · S 保存
+          Ctrl/Cmd + F 查找 · H 替换 · B 粗体 · K 链接 · Alt+T 表格 · S 保存
         </span>
       </footer>
     </div>

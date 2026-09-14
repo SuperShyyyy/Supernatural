@@ -1,20 +1,29 @@
 import { createEditor, type Editor } from '../core/editor/createEditor';
+import { createCoreRegistry } from '../core/commands/registry';
+import { markdownSchema } from '../core/document/schema';
 import type { DocumentSource } from '../filesystem/FileSystemAdapter';
 import { FileSystemAccessAdapter } from '../filesystem/FileSystemAccessAdapter';
 import { DraftAdapter } from '../filesystem/DraftAdapter';
 import { LocalStorageAdapter } from '../filesystem/LocalStorageAdapter';
 import { RecentFilesStore } from '../filesystem/RecentFilesStore';
 import { AutosaveService, type SaveStatus } from '../services/autosave/AutosaveService';
-import { Topbar } from '../ui/topbar';
+import { ZoomController, loadZoom, saveZoom } from '../services/zoom/ZoomController';
+import { MenuBar } from '../ui/menubar';
+import { SearchPanel } from '../ui/searchPanel';
+import { ShortcutsDialog } from '../ui/shortcutsDialog';
 import { DEMO_DOCUMENT } from './demoDocument';
 
 const DEFAULT_DOCUMENT_NAME = '未命名.md';
 const AUTOSAVE_DELAY_MS = 800;
+const THEME_STORAGE_KEY = 'md-editer.theme';
+
+type Theme = 'light' | 'dark';
 
 interface AppRefs {
   readonly viewport: HTMLElement;
   readonly docName: HTMLElement;
   readonly saveStatus: HTMLElement;
+  readonly zoomValue: HTMLElement;
   readonly statCharacters: HTMLElement;
   readonly statWords: HTMLElement;
   readonly statBlocks: HTMLElement;
@@ -33,7 +42,6 @@ export async function startApp(root: HTMLElement): Promise<void> {
   let documentName = draft?.name ?? DEFAULT_DOCUMENT_NAME;
   const initialMarkdown = draft?.content ?? DEMO_DOCUMENT;
 
-  let editor: Editor | null = null;
   let frame = 0;
 
   const autosave = new AutosaveService(
@@ -57,7 +65,7 @@ export async function startApp(root: HTMLElement): Promise<void> {
     });
   };
 
-  editor = createEditor({
+  const editor: Editor = createEditor({
     mount: refs.viewport,
     markdown: initialMarkdown,
     onChange: () => {
@@ -66,12 +74,20 @@ export async function startApp(root: HTMLElement): Promise<void> {
     },
   });
 
+  const registry = createCoreRegistry(markdownSchema);
+  const zoom = new ZoomController(document.documentElement, loadZoom());
+  const searchPanel = new SearchPanel({
+    getView: () => editor.view,
+    onClose: () => editor.focus(),
+  });
+  const shortcutsDialog = new ShortcutsDialog(registry);
+
   const applySource = (source: DocumentSource): void => {
     documentName = source.name;
-    editor?.setMarkdown(source.content);
+    editor.setMarkdown(source.content);
     renderDocumentName(refs.docName, documentName);
     scheduleStatsUpdate();
-    editor?.focus();
+    editor.focus();
     autosave.markDirty();
   };
 
@@ -81,54 +97,84 @@ export async function startApp(root: HTMLElement): Promise<void> {
     void recentStore
       .put({ name: handle.name, updatedAt: Date.now(), handle })
       .then(() => recentStore.list())
-      .then((entries) => topbar.setRecentFiles(entries))
+      .then((entries) => menubar.setRecentFiles(entries))
       .catch(() => undefined);
   };
 
-  const topbar = new Topbar(root, {
-    onNew: () => {
-      const content = editor?.getMarkdown() ?? '';
-      if (content.trim().length > 0 && !window.confirm('新建会清空当前内容，继续？')) return;
-      documentName = DEFAULT_DOCUMENT_NAME;
-      fileAdapter.setHandle(null, documentName);
-      editor?.setMarkdown('');
-      renderDocumentName(refs.docName, documentName);
-      scheduleStatsUpdate();
-      editor?.focus();
-      autosave.markDirty();
-    },
-    onOpen: () => {
-      void fileAdapter.open().then((source) => {
-        if (source === null) return;
-        applySource(source);
-        rememberRecent();
-      });
-    },
-    onSaveAs: () => {
-      void saveAsVia(fileAdapter, () => ({
-        name: documentName,
-        content: editor?.getMarkdown() ?? '',
-      })).then((name) => {
+  const saveAs = (): void => {
+    void fileAdapter
+      .saveAs({ name: documentName, content: editor.getMarkdown() })
+      .then((name) => {
         if (name === null) return;
         documentName = name;
         renderDocumentName(refs.docName, documentName);
         rememberRecent();
         void autosave.saveNow();
-      });
-    },
-    onOpenRecent: (entry) => {
-      if (entry.handle === undefined) return;
-      void fileAdapter.openHandle(entry.handle).then((source) => {
-        if (source === null) return;
-        applySource(source);
-        rememberRecent();
-      });
+      })
+      .catch(() => undefined);
+  };
+
+  const menubar = new MenuBar(root, {
+    registry,
+    getView: () => editor.view,
+    actions: {
+      onNew: () => {
+        const content = editor.getMarkdown();
+        if (content.trim().length > 0 && !window.confirm('新建会清空当前内容，继续？')) return;
+        documentName = DEFAULT_DOCUMENT_NAME;
+        fileAdapter.setHandle(null, documentName);
+        editor.setMarkdown('');
+        renderDocumentName(refs.docName, documentName);
+        scheduleStatsUpdate();
+        editor.focus();
+        autosave.markDirty();
+      },
+      onOpen: () => {
+        void fileAdapter
+          .open()
+          .then((source) => {
+            if (source === null) return;
+            applySource(source);
+            rememberRecent();
+          })
+          .catch(() => undefined);
+      },
+      onSave: () => void autosave.saveNow(),
+      onSaveAs: saveAs,
+      onFind: () => searchPanel.show(false),
+      onReplace: () => searchPanel.show(true),
+      onZoomIn: () => zoom.step(1),
+      onZoomOut: () => zoom.step(-1),
+      onZoomReset: () => zoom.reset(),
+      onToggleTheme: () => {
+        const next: Theme = document.documentElement.dataset['theme'] === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+      },
+      onShowShortcuts: () => shortcutsDialog.show(),
+      onOpenRecent: (entry) => {
+        if (entry.handle === undefined) return;
+        void fileAdapter
+          .openHandle(entry.handle)
+          .then((source) => {
+            if (source === null) return;
+            applySource(source);
+            rememberRecent();
+          })
+          .catch(() => undefined);
+      },
     },
   });
 
+  zoom.onChange((level) => {
+    saveZoom(level);
+    refs.zoomValue.textContent = `${level}%`;
+  });
+  refs.zoomValue.textContent = `${zoom.level}%`;
+
+  applyTheme(readTheme());
   void recentStore
     .list()
-    .then((entries) => topbar.setRecentFiles(entries))
+    .then((entries) => menubar.setRecentFiles(entries))
     .catch(() => undefined);
 
   renderDocumentName(refs.docName, documentName);
@@ -136,32 +182,61 @@ export async function startApp(root: HTMLElement): Promise<void> {
   editor.focus();
 
   window.addEventListener('keydown', (event) => {
-    if (!event.ctrlKey && !event.metaKey) return;
-    if (event.key === 's' || event.key === 'S') {
-      event.preventDefault();
-      void autosave.saveNow();
-      return;
-    }
-    if (event.shiftKey && (event.key === 's' || event.key === 'S')) {
-      event.preventDefault();
-      void saveAsVia(fileAdapter, () => ({
-        name: documentName,
-        content: editor?.getMarkdown() ?? '',
-      })).then((name) => {
-        if (name === null) return;
-        documentName = name;
-        renderDocumentName(refs.docName, documentName);
-        rememberRecent();
-      });
+    const mod = event.ctrlKey || event.metaKey;
+    if (!mod) return;
+
+    switch (event.key) {
+      case 's':
+      case 'S':
+        event.preventDefault();
+        if (event.shiftKey) saveAs();
+        else void autosave.saveNow();
+        return;
+      case 'f':
+      case 'F':
+        event.preventDefault();
+        searchPanel.show(event.shiftKey);
+        return;
+      case 'h':
+      case 'H':
+        event.preventDefault();
+        searchPanel.show(true);
+        return;
+      case '+':
+      case '=':
+        event.preventDefault();
+        zoom.step(1);
+        return;
+      case '-':
+      case '_':
+        event.preventDefault();
+        zoom.step(-1);
+        return;
+      case '0':
+        event.preventDefault();
+        zoom.reset();
+        return;
+      default:
+        return;
     }
   });
 }
 
-async function saveAsVia(
-  adapter: FileSystemAccessAdapter,
-  source: () => DocumentSource,
-): Promise<string | null> {
-  return adapter.saveAs(source());
+function readTheme(): Theme {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
+function applyTheme(theme: Theme): void {
+  document.documentElement.dataset['theme'] = theme;
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    /* 忽略：主题只是偏好 */
+  }
 }
 
 function resolveRefs(root: HTMLElement): AppRefs {
@@ -169,6 +244,7 @@ function resolveRefs(root: HTMLElement): AppRefs {
     viewport: requireElement(root, '.editor-viewport'),
     docName: requireElement(root, '#doc-name'),
     saveStatus: requireElement(root, '#save-status'),
+    zoomValue: requireElement(root, '#zoom-value'),
     statCharacters: requireElement(root, '#stat-characters'),
     statWords: requireElement(root, '#stat-words'),
     statBlocks: requireElement(root, '#stat-blocks'),

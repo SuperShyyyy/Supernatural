@@ -35,7 +35,9 @@ interface BlockResult {
 export function parseMarkdown(source: string, schema: Schema = markdownSchema): PMNode {
   const tokens = tokenizer.parse(source, {});
   const { nodes } = parseBlocks(schema, tokens, 0, () => false);
-  return requireNodeType(schema, 'doc').createChecked(null, nodes);
+  // doc 的内容模型是 block+，空源码必须补一个空段落（新建文档就是这种情况）
+  const blocks = nodes.length > 0 ? nodes : [requireNodeType(schema, 'paragraph').createChecked(null)];
+  return requireNodeType(schema, 'doc').createChecked(null, blocks);
 }
 
 /* ------------------------------- block 层 ------------------------------- */

@@ -19,6 +19,23 @@
   background: color-mix(in srgb, var(--accent-color) 26%, transparent);
 }
 
+/* 查找高亮：装饰层实现，不进文档、不影响 Undo */
+.md-search-hit {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent-color) 24%, transparent);
+}
+
+.md-search-hit--current {
+  background: color-mix(in srgb, var(--accent-color) 55%, transparent);
+  color: var(--text-color);
+}
+
+/* 被选中的原子节点（图片 / 公式 / 图表） */
+.ProseMirror-selectednode {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
 /* 空块给一点最小高度，避免光标落不进去 */
 .editor-content p:empty::after {
   content: '';
