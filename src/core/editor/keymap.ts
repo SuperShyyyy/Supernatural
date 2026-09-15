@@ -57,6 +57,79 @@ function fenceToCodeBlockOnEnter(schema: Schema): Command {
   };
 }
 
+/** 代码块内缩进宽度：Tab 插入两个空格（与 Markdown 代码块的常见习惯一致）。 */
+const CODE_INDENT = '  ';
+
+/**
+ * 代码块内的删除（对齐 Typora 手感）：
+ *
+ *  - 代码块非空：只删光标前/后的一个字符，**绝不因为删空就连块一起删掉**。
+ *    之前这里没人接管，浏览器默认行为会把"刚删空的空代码块"直接吃掉，
+ *    于是"输入 w 再删掉 w → 整个代码块消失"。
+ *  - 代码块为空：才允许删除整块（退回普通段落）——即用户显式按下删除键的场景。
+ *  - 光标在块首且块非空：交回默认 joinBackward，与上一块合并（Typora 行为）。
+ */
+function deleteInCodeBlock(schema: Schema, direction: 'backward' | 'forward'): Command {
+  return (state, dispatch) => {
+    const selection = state.selection;
+    if (!selection.empty) return false; // 有选区：交给默认删除
+    const $from = selection.$from;
+    if ($from.parent.type.spec.code !== true) return false;
+
+    if ($from.parent.content.size === 0) {
+      if (dispatch) {
+        dispatch(state.tr.setBlockType($from.before(), $from.after(), requireNodeType(schema, 'paragraph')));
+      }
+      return true;
+    }
+
+    if (direction === 'backward') {
+      if ($from.pos <= $from.start()) return false; // 块首：交给 joinBackward
+      if (dispatch) dispatch(state.tr.delete($from.pos - 1, $from.pos));
+      return true;
+    }
+    if ($from.pos >= $from.end()) return false; // 块尾：交给默认
+    if (dispatch) dispatch(state.tr.delete($from.pos, $from.pos + 1));
+    return true;
+  };
+}
+
+/**
+ * 代码块内 Tab / Shift-Tab：缩进与反缩进。
+ * 必须接管，否则 ProseMirror 不处理时浏览器会执行默认行为——把焦点移到
+ * 下一个可聚焦元素（就是下一个代码块的语言输入框 / 复制按钮），看起来像"跳到别的代码块"。
+ */
+function tabInCode(): Command {
+  return (state, dispatch) => {
+    const $from = state.selection.$from;
+    if ($from.parent.type.spec.code !== true) return false;
+    if (dispatch) {
+      dispatch(state.tr.insertText(CODE_INDENT, state.selection.from, state.selection.to));
+    }
+    return true;
+  };
+}
+
+function untabInCode(): Command {
+  return (state, dispatch) => {
+    const selection = state.selection;
+    if (!selection.empty) return false;
+    const $from = selection.$from;
+    if ($from.parent.type.spec.code !== true) return false;
+
+    const text = $from.parent.textContent;
+    let remove = 0;
+    for (let i = $from.parentOffset - 1; i >= 0 && remove < CODE_INDENT.length; i -= 1) {
+      if (text[i] === ' ') remove += 1;
+      else break;
+    }
+    // 没有缩进可删时也要吞掉按键，避免浏览器把焦点移走
+    if (remove === 0) return true;
+    if (dispatch) dispatch(state.tr.delete($from.pos - remove, $from.pos));
+    return true;
+  };
+}
+
 export function createEditorKeymap(schema: Schema): Plugin {
   const registry = createCoreRegistry(schema);
   const listItem = requireNodeType(schema, 'list_item');
@@ -72,9 +145,13 @@ export function createEditorKeymap(schema: Schema): Plugin {
       liftEmptyBlock,
       splitBlock,
     ),
-    // 表格内 Tab 走单元格跳转，列表内 Tab 走层级调整
-    Tab: chainCommands(goToNextCell(1), sinkListItem(listItem)),
-    'Shift-Tab': chainCommands(goToNextCell(-1), liftListItem(listItem)),
+    // 代码块内删除：非空只删字符，空块才删整块
+    Backspace: chainCommands(deleteInCodeBlock(schema, 'backward')),
+    Delete: chainCommands(deleteInCodeBlock(schema, 'forward')),
+    // 代码块内的 Tab 优先：tabInCode() 只在 code 节点生效，不影响表格与列表
+    // 注意：这里是调用工厂拿到 Command，不能直接传工厂本身
+    Tab: chainCommands(tabInCode(), goToNextCell(1), sinkListItem(listItem)),
+    'Shift-Tab': chainCommands(untabInCode(), goToNextCell(-1), liftListItem(listItem)),
   };
 
   return keymap(bindings);

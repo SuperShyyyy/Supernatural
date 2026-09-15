@@ -200,6 +200,99 @@ describe('代码块语言修改与语法高亮', () => {
   });
 });
 
+describe('代码块内删除与缩进（Typora 手感）', () => {
+  function mount(md = ''): Editor {
+    const el = document.createElement('div');
+    document.body.append(el);
+    return createEditor({ mount: el, markdown: md });
+  }
+
+  function typeInto(view: Editor['view'], text: string): void {
+    for (const char of text) {
+      const { from, to } = view.state.selection;
+      const handled = view.someProp('handleTextInput', (handler) =>
+        handler(view, from, to, char, () => view.state.tr),
+      );
+      if (handled !== true) view.dispatch(view.state.tr.insertText(char, from, to));
+    }
+  }
+
+  function pressKey(editor: Editor, key: string): boolean {
+    const ev = new KeyboardEvent('keydown', { key, code: key, bubbles: true });
+    for (const plugin of editor.view.state.plugins) {
+      const handler = (plugin as unknown as { spec?: { props?: Record<string, unknown> } }).spec?.props?.handleKeyDown;
+      if (handler && (handler as (v: Editor['view'], e: KeyboardEvent) => boolean)(editor.view, ev)) return true;
+    }
+    return false;
+  }
+
+  function codeInfo(editor: Editor): string {
+    let out = '(none)';
+    editor.view.state.doc.descendants((node) => {
+      if (node.type.name === 'code_block') { out = JSON.stringify(node.textContent); return false; }
+      return true;
+    });
+    return out;
+  }
+
+  function hasCodeBlock(editor: Editor): boolean {
+    let found = false;
+    editor.view.state.doc.descendants((node) => {
+      if (node.type.name === 'code_block') { found = true; return false; }
+      return true;
+    });
+    return found;
+  }
+
+  it('删掉块内最后一个字符 → 代码块仍然存在（只是内容被清空）', () => {
+    const editor = mount('```java\nw\n```\n');
+    let pos = 0;
+    editor.view.state.doc.descendants((node, p) => {
+      if (node.type.name === 'code_block') { pos = p + 1 + node.content.size; return false; }
+      return true;
+    });
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(TextSelection.near(editor.view.state.doc.resolve(pos))),
+    );
+
+    pressKey(editor, 'Backspace');
+
+    expect(hasCodeBlock(editor)).toBe(true);
+    expect(codeInfo(editor)).toBe('""');
+    editor.destroy();
+  });
+
+  it('空代码块内按 Backspace → 删除整块（退回普通段落）', () => {
+    const editor = mount('');
+    typeInto(editor.view, '~~~java');
+    typeInto(editor.view, ' '); // 生成空代码块
+    expect(hasCodeBlock(editor)).toBe(true);
+
+    pressKey(editor, 'Backspace');
+
+    expect(hasCodeBlock(editor)).toBe(false);
+    editor.destroy();
+  });
+
+  it('代码块内按 Tab → 插入缩进（而不是把焦点移到别的代码块）', () => {
+    const editor = mount('```java\nx\n```\n');
+    let pos = 0;
+    editor.view.state.doc.descendants((node, p) => {
+      if (node.type.name === 'code_block') { pos = p + 1 + node.content.size; return false; }
+      return true;
+    });
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(TextSelection.near(editor.view.state.doc.resolve(pos))),
+    );
+
+    const handled = pressKey(editor, 'Tab');
+
+    expect(handled).toBe(true);
+    expect(codeInfo(editor)).toBe('"x  "');
+    editor.destroy();
+  });
+});
+
 // 让 markdownSchema 兜底类型检查（未直接使用但保持导入稳定）
 export type { Editor };
 void markdownSchema;

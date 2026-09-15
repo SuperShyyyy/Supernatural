@@ -8,6 +8,8 @@ let loader: Promise<Highlighter> | null = null;
 /** 缓存上限：高亮结果可能很大，不能无限增长。 */
 const CACHE_LIMIT = 200;
 const MAX_HIGHLIGHT_LENGTH = 20_000;
+/** 停止输入多久后重算高亮：避免每个按键都跑一次 highlight.js */
+const HIGHLIGHT_DELAY_MS = 120;
 const cache = new Map<string, string>();
 
 /**
@@ -61,6 +63,7 @@ export function createCodeBlockView(
 ) {
   let current = node;
   let copyTimer: number | null = null;
+  let highlightTimer: number | null = null;
 
   const dom = document.createElement('div');
   dom.className = 'md-codeblock';
@@ -141,35 +144,63 @@ export function createCodeBlockView(
 
   render();
 
+  /** 命中缓存就直接上色（零延迟）；内容为空则清掉高亮。返回是否已处理完。 */
+  function applyCached(): boolean {
+    const language = String(current.attrs['params'] ?? '');
+    const code = current.textContent;
+    if (code.trim().length === 0) {
+      dom.classList.remove('md-codeblock--highlighted');
+      return true;
+    }
+    const cached = highlight(code, language);
+    if (cached === null) return false;
+    applyHighlight(cached);
+    return true;
+  }
+
+  /**
+   * 防抖后再算高亮。
+   * 连续输入时每个按键都跑一次 highlight.js + pretty.innerHTML 会让输入掉帧，
+   * 这里只在停止输入 HIGHLIGHT_DELAY_MS 后计算一次，输入过程中旧高亮保持不动。
+   */
+  function scheduleHighlight(): void {
+    if (highlightTimer !== null) window.clearTimeout(highlightTimer);
+    highlightTimer = window.setTimeout(() => {
+      highlightTimer = null;
+      void runHighlight();
+    }, HIGHLIGHT_DELAY_MS);
+  }
+
+  async function runHighlight(): Promise<void> {
+    const language = String(current.attrs['params'] ?? '');
+    const code = current.textContent;
+    if (code.trim().length === 0) {
+      dom.classList.remove('md-codeblock--highlighted');
+      return;
+    }
+    const cached = highlight(code, language);
+    if (cached !== null) {
+      applyHighlight(cached);
+      return;
+    }
+    try {
+      const highlighter = await loadHighlighter();
+      const html = highlighter(code, language);
+      remember(`${language} ${code}`, html);
+      applyHighlight(html);
+    } catch {
+      dom.classList.remove('md-codeblock--highlighted');
+    }
+  }
+
   function render(): void {
     const language = String(current.attrs['params'] ?? '');
     // 用户正在输入语言时不要覆盖其输入
     if (document.activeElement !== languageInput) {
       languageInput.value = language;
     }
-
-    const code = current.textContent;
-    const cached = highlight(code, language);
-    if (cached !== null) {
-      applyHighlight(cached);
-      return;
-    }
-    if (code.trim().length === 0) {
-      dom.classList.remove('md-codeblock--highlighted');
-      return;
-    }
-
-    void loadHighlighter()
-      .then((highlighter) => {
-        // 异步期间节点可能已经变化，只接受与当前内容一致的结果
-        if (current.textContent !== code) return;
-        const html = highlighter(code, language);
-        remember(`${language} ${code}`, html);
-        applyHighlight(html);
-      })
-      .catch(() => {
-        dom.classList.remove('md-codeblock--highlighted');
-      });
+    if (applyCached()) return;
+    scheduleHighlight();
   }
 
   function applyHighlight(html: string): void {
@@ -192,8 +223,9 @@ export function createCodeBlockView(
       return target instanceof Node && bar.contains(target);
     },
     destroy(): void {
-      // 节点视图被移除时取消可能仍在排队的"已复制"提示定时器
+      // 节点视图被移除时取消仍排队中的定时器，避免向已脱离文档的 DOM 写入
       if (copyTimer !== null) window.clearTimeout(copyTimer);
+      if (highlightTimer !== null) window.clearTimeout(highlightTimer);
     },
   };
 }

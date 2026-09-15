@@ -15,7 +15,8 @@ import { ShortcutsDialog } from '../ui/shortcutsDialog';
 import { DEMO_DOCUMENT } from './demoDocument';
 
 const DEFAULT_DOCUMENT_NAME = '未命名.md';
-const AUTOSAVE_DELAY_MS = 800;
+/** 停止输入 1.2s 后落盘：比 800ms 更少的序列化/IO 次数，又不影响"几乎实时"的体感 */
+const AUTOSAVE_DELAY_MS = 1200;
 const THEME_STORAGE_KEY = 'md-editer.theme';
 
 type Theme = 'light' | 'dark';
@@ -60,16 +61,30 @@ export async function startApp(root: HTMLElement): Promise<void> {
     },
   );
 
+  // 统计是 O(doc)：大文档下"每帧都算"会与输入抢主线程导致掉帧，
+  // 因此在时间上节流（最多 STATS_THROTTLE_MS 一次），并且仍放在动画帧里更新 DOM。
+  const STATS_THROTTLE_MS = 250;
+  let lastStatsAt = 0;
+
+  const renderStats = (): void => {
+    frame = 0;
+    lastStatsAt = Date.now();
+    if (editor === null) return;
+    const stats = editor.getStats();
+    refs.statCharacters.textContent = String(stats.characters);
+    refs.statWords.textContent = String(stats.words);
+    refs.statBlocks.textContent = String(stats.blocks);
+  };
+
   const scheduleStatsUpdate = (): void => {
     if (frame !== 0) return;
-    frame = requestAnimationFrame(() => {
-      frame = 0;
-      if (editor === null) return;
-      const stats = editor.getStats();
-      refs.statCharacters.textContent = String(stats.characters);
-      refs.statWords.textContent = String(stats.words);
-      refs.statBlocks.textContent = String(stats.blocks);
-    });
+    const wait = Math.max(0, STATS_THROTTLE_MS - (Date.now() - lastStatsAt));
+    frame =
+      wait === 0
+        ? requestAnimationFrame(renderStats)
+        : window.setTimeout(() => {
+            frame = requestAnimationFrame(renderStats);
+          }, wait);
   };
 
   const editor: Editor = createEditor({

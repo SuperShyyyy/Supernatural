@@ -81,7 +81,9 @@ export class AutosaveService {
 function whenIdle<T>(task: () => T): Promise<T> {
   return new Promise((resolve) => {
     if (typeof window.requestIdleCallback === 'function') {
-      window.requestIdleCallback(() => resolve(task()), { timeout: 1000 });
+      // timeout 放宽到 2s：给浏览器更多机会找到真正的空闲片段，
+      // 避免"强制在忙时执行"抢掉输入主线程（表现为打字掉帧）
+      window.requestIdleCallback(() => resolve(task()), { timeout: 2000 });
       return;
     }
     window.setTimeout(() => resolve(task()), 0);
