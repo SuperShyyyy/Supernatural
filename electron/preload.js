@@ -27,4 +27,6 @@ contextBridge.exposeInMainWorld('mdEditor', {
     ipcRenderer.on('md-editer:opened', handler);
     return () => ipcRenderer.removeListener('md-editer:opened', handler);
   },
+  /** 初始化完成、监听器已注册后通知主进程，可安全投递启动文件 */
+  ready: () => ipcRenderer.send('renderer:ready'),
 });

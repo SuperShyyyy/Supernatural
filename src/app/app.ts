@@ -249,6 +249,8 @@ export async function startApp(root: HTMLElement): Promise<void> {
     applySource({ name: doc.name, content: doc.content });
     rememberRecent();
   });
+  // 告诉主进程：监听器已就绪，可以安全投递启动文件（避免 md-editer:opened 早于监听被丢弃）
+  bridge?.ready();
 
   window.addEventListener('keydown', (event) => {
     const mod = event.ctrlKey || event.metaKey;

@@ -31,6 +31,8 @@ interface ElectronBridge {
   listRecent(): Promise<RecentPathEntry[]>;
   onAction(listener: (action: MenuActionMessage) => void): () => void;
   onOpened(listener: (doc: OpenedDocument) => void): () => void;
+  /** 渲染进程初始化完成、已注册好监听器后调用，通知主进程可以安全投递启动文件 */
+  ready(): void;
 }
 
 interface Window {

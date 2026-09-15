@@ -280,14 +280,24 @@ async function createWindow() {
     },
   });
 
+  // 等渲染进程就绪（注册好 onOpened 监听）后再投递启动文件，
+  // 否则 md-editer:opened 会早于监听器注册被发出并丢失，导致双击 .md 仍显示草稿
+  let startupDelivered = false;
+  const deliverStartupFile = (): void => {
+    if (startupDelivered) return;
+    startupDelivered = true;
+    const startupFile = fileArgFromArgv(process.argv);
+    if (startupFile) void openFileAt(startupFile);
+  };
+  ipcMain.once('renderer:ready', deliverStartupFile);
+  // 兜底：若渲染进程未发出就绪信号，3s 后照常投递，避免卡死
+  const startupFallback = setTimeout(deliverStartupFile, 3000);
+
   await mainWindow.loadURL(`http://127.0.0.1:${port}/`);
   mainWindow.show();
 
-  // 启动时若带 .md 文件路径（如双击文件 / xdg-open），直接打开它
-  const startupFile = fileArgFromArgv(process.argv);
-  if (startupFile) await openFileAt(startupFile);
-
   mainWindow.on('closed', () => {
+    clearTimeout(startupFallback);
     mainWindow = null;
     server?.close();
     server = null;
