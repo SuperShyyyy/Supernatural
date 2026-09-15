@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const output = resolve(root, 'build/md-editer');
+const output = resolve(root, 'build/supernatural');
 
 await rm(output, { recursive: true, force: true });
 await mkdir(resolve(output, 'app'), { recursive: true });

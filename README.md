@@ -1,4 +1,4 @@
-# md-editer
+# Supernatural
 
 桌面级 Markdown 查看与编辑器（目标体验接近 Typora）。
 
@@ -46,8 +46,8 @@ npm run build
 ### 浏览器 / 网页版（零依赖）
 
 ```bash
-npm run package              # 生成 build/md-editer（app + 零依赖服务器 + start.sh）
-cd build/md-editer && ./start.sh   # 直接运行（默认 http://127.0.0.1:8321/）
+npm run package              # 生成 build/supernatural（app + 零依赖服务器 + start.sh）
+cd build/supernatural && ./start.sh   # 直接运行（默认 http://127.0.0.1:8321/）
 bash scripts/install-opt.sh        # 安装到 /opt（需 sudo）
 ```
 
@@ -59,13 +59,13 @@ bash scripts/install-opt.sh        # 安装到 /opt（需 sudo）
 ```bash
 npm run electron            # 先打包再启动原生窗口（开发期）
 npm run electron:dist       # 用 electron-builder 产出可分发包
-                            #   → dist-electron/md-editer-<ver>.AppImage（Linux）
+                            #   → dist-electron/Supernatural-<ver>.AppImage（Linux）
                             #   → dist-electron/linux-unpacked/（解包目录）
 ```
 
 产物：
 
-- `/opt/md-editer/md-editer.AppImage` — 双击即用的桌面应用（真实文件读写、最近文件、原生菜单）
-- `~/桌面/md-editer.AppImage` + 启动器 `~/桌面/md-editer.desktop`（指向 /opt 的 AppImage）
+- `/opt/supernatural/Supernatural.AppImage` — 双击即用的桌面应用（真实文件读写、最近文件、原生菜单）
+- `~/桌面/Supernatural.AppImage` + 启动器 `~/桌面/supernatural.desktop`（指向 /opt 的 AppImage）
 
 > Electron 二进制下载走国内镜像（`ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`）以加速安装。

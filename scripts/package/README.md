@@ -1,4 +1,4 @@
-# md-editer
+# Supernatural
 
 Typora 风格的 Markdown 编辑器（TypeScript + ProseMirror，无 Rust / WASM）。
 

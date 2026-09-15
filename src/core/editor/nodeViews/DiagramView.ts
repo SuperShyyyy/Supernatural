@@ -26,6 +26,7 @@ function loadMermaid(): Promise<MermaidApi> {
  */
 export function createDiagramView(node: PMNode) {
   let current = node;
+  let destroyed = false;
 
   const dom = document.createElement('div');
   dom.className = 'md-diagram';
@@ -42,13 +43,16 @@ export function createDiagramView(node: PMNode) {
       .then(async (mermaid) => {
         const id = `diagram-${Math.random().toString(36).slice(2, 10)}`;
         const { svg } = await mermaid.render(id, code);
-        // 只在内容仍是当前版本时写入，避免异步渲染乱序覆盖
+        // 只在内容仍是当前版本、且节点视图未销毁时写入，
+        // 避免异步渲染在节点被移除后还往脱离文档的 DOM 写 SVG（造成悬挂引用）
+        if (destroyed) return;
         if (String(current.attrs['code'] ?? '') === code) {
           dom.innerHTML = svg;
           dom.classList.remove('md-diagram--error');
         }
       })
       .catch(() => {
+        if (destroyed) return;
         dom.classList.add('md-diagram--error');
         dom.textContent = code;
       });
@@ -65,5 +69,8 @@ export function createDiagramView(node: PMNode) {
     },
     ignoreMutation: () => true,
     stopEvent: () => false,
+    destroy(): void {
+      destroyed = true;
+    },
   };
 }

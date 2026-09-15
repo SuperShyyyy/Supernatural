@@ -1,5 +1,5 @@
 {
-  "name": "md-editer",
+  "name": "supernatural",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,19 +15,19 @@
     "package": "vite build && node scripts/package.mjs"
   },
   "build": {
-    "appId": "com.mdediter.app",
-    "productName": "md-editer",
+    "appId": "com.supershyyyy.supernatural",
+    "productName": "Supernatural",
     "icon": "electron/icon.png",
     "files": [
       "electron/**",
       "scripts/**",
-      "build/md-editer/**",
+      "build/supernatural/**",
       "package.json"
     ],
     "linux": {
       "target": ["AppImage", "dir"],
       "category": "Office",
-      "maintainer": "md-editer"
+      "maintainer": "Supernatural"
     },
     "directories": {
       "output": "dist-electron"

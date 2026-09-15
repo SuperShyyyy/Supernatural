@@ -1,6 +1,6 @@
 /** 首次打开（本地没有任何文档时）的示例内容，覆盖 Phase 1 支持的全部节点。 */
 
-export const DEMO_DOCUMENT = `# md-editer
+export const DEMO_DOCUMENT = `# Supernatural
 
 这是一个**语义节点**驱动的 Markdown 编辑器：你看到的就是渲染结果，而不是源码。
 

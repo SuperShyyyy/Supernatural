@@ -38,6 +38,10 @@ export function createMarkdownInputRules(schema: Schema): Plugin {
     textblockTypeInputRule(/^```([A-Za-z0-9+#._-]*)\s$/, codeBlock, (match) => ({
       params: match[1] ?? '',
     })),
+    // Typora 风格：~~~ 围栏同样支持带语言，如 ~~~java / ~~~python
+    textblockTypeInputRule(/^~~~([A-Za-z0-9+#._-]*)\s$/, codeBlock, (match) => ({
+      params: match[1] ?? '',
+    })),
     horizontalRuleRule(requireNodeType(schema, 'horizontal_rule')),
     markRule(/(?:^|\s)\*\*([^*]+)\*\*$/, requireMark(schema, 'strong'), 2),
     markRule(/(?:^|\s)(?<!\*)\*([^*]+)\*$/, requireMark(schema, 'em'), 1),

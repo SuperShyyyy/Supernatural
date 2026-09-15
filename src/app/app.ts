@@ -345,7 +345,7 @@ function requireElement(root: HTMLElement, selector: string): HTMLElement {
 
 function renderDocumentName(target: HTMLElement, name: string): void {
   target.textContent = name;
-  document.title = `${name} — md-editer`;
+  document.title = `${name} — Supernatural`;
 }
 
 function renderSaveStatus(target: HTMLElement, status: SaveStatus, savedAt: Date | null): void {

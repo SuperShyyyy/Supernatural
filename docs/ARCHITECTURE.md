@@ -261,4 +261,4 @@ Content Layout  ──► 所有内部尺寸用 em/ch/rem(相对 content) → �
 - 目录按上面的分层；单文件职责单一；禁止在 `main.ts` / `App.tsx` 里堆逻辑
 - 注释解释 **why**，不解释 **what**
 - 每个 Phase 结束：typecheck → lint → test → 手工编辑体验走查 → 总结 → 才进入下一阶段
-- 每个阶段一次 git commit（仓库：https://github.com/SuperShyyyy/md-editer）
+- 每个阶段一次 git commit（仓库：https://github.com/SuperShyyyy/Supernatural）
