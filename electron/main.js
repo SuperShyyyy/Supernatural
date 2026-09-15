@@ -283,7 +283,7 @@ async function createWindow() {
   // 等渲染进程就绪（注册好 onOpened 监听）后再投递启动文件，
   // 否则 md-editer:opened 会早于监听器注册被发出并丢失，导致双击 .md 仍显示草稿
   let startupDelivered = false;
-  const deliverStartupFile = (): void => {
+  const deliverStartupFile = () => {
     if (startupDelivered) return;
     startupDelivered = true;
     const startupFile = fileArgFromArgv(process.argv);
