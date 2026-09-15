@@ -274,6 +274,54 @@ describe('代码块内删除与缩进（Typora 手感）', () => {
     editor.destroy();
   });
 
+  function pressKeyWith(editor: Editor, key: string, init: KeyboardEventInit = {}): boolean {
+    const ev = new KeyboardEvent('keydown', { key, code: key, bubbles: true, ...init });
+    for (const plugin of editor.view.state.plugins) {
+      const handler = (plugin as unknown as { spec?: { props?: Record<string, unknown> } }).spec?.props?.handleKeyDown;
+      if (handler && (handler as (v: Editor['view'], e: KeyboardEvent) => boolean)(editor.view, ev)) return true;
+    }
+    return false;
+  }
+
+  function blockNames(editor: Editor): string[] {
+    const names: string[] = [];
+    editor.view.state.doc.descendants((node) => {
+      names.push(node.type.name);
+      return false;
+    });
+    return names;
+  }
+
+  it('代码块内按 Ctrl/Cmd+Enter → 在代码块后新建段落（可继续输入）', () => {
+    const editor = mount('```java\nx\n```\n');
+    let pos = 0;
+    editor.view.state.doc.descendants((node, p) => {
+      if (node.type.name === 'code_block') { pos = p + 1; return false; }
+      return true;
+    });
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(TextSelection.near(editor.view.state.doc.resolve(pos))),
+    );
+
+    const handled = pressKeyWith(editor, 'Enter', { ctrlKey: true });
+
+    expect(handled).toBe(true);
+    expect(blockNames(editor)).toEqual(['code_block', 'paragraph']);
+    editor.destroy();
+  });
+
+  it('点击内容下方空白 → 末尾补段落（最后一块是代码块时也能继续输入）', () => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    const editor = createEditor({ mount: el, markdown: '```java\nx\n```\n' });
+
+    // jsdom 下 getBoundingClientRect 全为 0，clientY > bottom 即视为"点在下方空白"
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientY: 100 }));
+
+    expect(blockNames(editor)).toEqual(['code_block', 'paragraph']);
+    editor.destroy();
+  });
+
   it('代码块内按 Tab → 插入缩进（而不是把焦点移到别的代码块）', () => {
     const editor = mount('```java\nx\n```\n');
     let pos = 0;

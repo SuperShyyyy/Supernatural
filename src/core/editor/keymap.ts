@@ -130,6 +130,26 @@ function untabInCode(): Command {
   };
 }
 
+/**
+ * Mod-Enter：从代码块跳到它后面的新段落。
+ * 代码块内 Enter 永远是"换行"，所以当代码块是最后一块时，需要一个显式的
+ * "退出代码块、在后面继续写"的快捷键（否则光标永远出不去）。
+ */
+function exitCodeBlock(schema: Schema): Command {
+  return (state, dispatch) => {
+    const $from = state.selection.$from;
+    if ($from.parent.type.spec.code !== true) return false;
+    const paragraph = requireNodeType(schema, 'paragraph');
+    const after = $from.after();
+    if (dispatch) {
+      const tr = state.tr.insert(after, paragraph.create());
+      tr.setSelection(TextSelection.near(tr.doc.resolve(after + 1)));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
 export function createEditorKeymap(schema: Schema): Plugin {
   const registry = createCoreRegistry(schema);
   const listItem = requireNodeType(schema, 'list_item');
@@ -152,6 +172,8 @@ export function createEditorKeymap(schema: Schema): Plugin {
     // 注意：这里是调用工厂拿到 Command，不能直接传工厂本身
     Tab: chainCommands(tabInCode(), goToNextCell(1), sinkListItem(listItem)),
     'Shift-Tab': chainCommands(untabInCode(), goToNextCell(-1), liftListItem(listItem)),
+    // 退出代码块，在其后新建段落继续写
+    'Mod-Enter': exitCodeBlock(schema),
   };
 
   return keymap(bindings);

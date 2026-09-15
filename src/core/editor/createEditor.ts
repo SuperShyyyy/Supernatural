@@ -1,5 +1,5 @@
 import type { Node as PMNode, Schema } from 'prosemirror-model';
-import { EditorState, type Plugin, type Transaction } from 'prosemirror-state';
+import { EditorState, TextSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { history } from 'prosemirror-history';
 import { columnResizing, tableEditing } from 'prosemirror-tables';
@@ -69,6 +69,34 @@ export function createEditor(options: EditorOptions): Editor {
     dispatchTransaction,
   });
 
+  /**
+   * 点击编辑区下方的空白区域：若最后一个块不是段落，就补一个空段落并聚焦。
+   *
+   * 否则当最后一块是代码块 / 标题 / 公式这类非段落块时，点击它下方完全没反应，
+   * 用户"没法在最后一行下面继续输入"。
+   */
+  const handleBlankAreaClick = (event: MouseEvent): void => {
+    const rect = view.dom.getBoundingClientRect();
+    if (event.clientY <= rect.bottom) return; // 点在内容区内，交回 ProseMirror 处理
+
+    const paragraph = schema.nodes['paragraph'];
+    if (paragraph === undefined) return;
+    const { state } = view;
+    const last = state.doc.lastChild;
+    if (last === null) return;
+
+    if (last.type.name === 'paragraph') {
+      view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(state.doc.content.size))));
+    } else {
+      const insertPos = state.doc.content.size;
+      const tr = state.tr.insert(insertPos, paragraph.createAndFill() ?? paragraph.create());
+      tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)));
+      view.dispatch(tr);
+    }
+    view.focus();
+  };
+  options.mount.addEventListener('mousedown', handleBlankAreaClick);
+
   return {
     view,
     getMarkdown: () => serializeMarkdown(view.state.doc),
@@ -79,7 +107,10 @@ export function createEditor(options: EditorOptions): Editor {
     },
     getStats: () => measure(view.state.doc),
     focus: () => view.focus(),
-    destroy: () => view.destroy(),
+    destroy: () => {
+      options.mount.removeEventListener('mousedown', handleBlankAreaClick);
+      view.destroy();
+    },
   };
 }
 
