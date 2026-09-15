@@ -9,7 +9,7 @@ import { baseKeymap, chainCommands, liftEmptyBlock, newlineInCode, splitBlock } 
 import { keymap } from 'prosemirror-keymap';
 import type { Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import type { Command, Plugin } from 'prosemirror-state';
+import { TextSelection, type Command, type Plugin } from 'prosemirror-state';
 import { goToNextCell } from 'prosemirror-tables';
 
 import { createCoreRegistry } from '../commands/registry';
@@ -26,6 +26,7 @@ const FENCE_PREFIX = /^\s{0,3}(```+|~~~+)([A-Za-z0-9+#._-]*)$/;
  * 与"空格"触发的输入规则互补 —— 用户敲 ```python 后，按空格或按回车都能得到代码块。
  */
 function fenceToCodeBlockOnEnter(schema: Schema): Command {
+  const codeBlock = requireNodeType(schema, 'code_block');
   return (state, dispatch) => {
     const selection = state.selection;
     if (!selection.empty) return false;
@@ -40,11 +41,17 @@ function fenceToCodeBlockOnEnter(schema: Schema): Command {
     if (match === null) return false;
 
     if (dispatch) {
-      dispatch(
-        state.tr.setBlockType($from.before(), $from.after(), requireNodeType(schema, 'code_block'), {
-          params: match[2] ?? '',
-        }),
+      const params = match[2] ?? '';
+      // 用"空代码块"整体替换该段落：既设置 params，也把围栏文本 ``` / ~~~java 清掉，
+      // 否则这些字符会残留成代码块的第一行内容（旧实现只 setBlockType 未删除文字）。
+      const tr = state.tr.replaceWith(
+        $from.before(),
+        $from.after(),
+        codeBlock.create({ params }),
       );
+      // 光标放入新代码块内部，用户按 Enter 后即可直接输入代码
+      tr.setSelection(TextSelection.near(tr.doc.resolve($from.before() + 1)));
+      dispatch(tr.scrollIntoView());
     }
     return true;
   };

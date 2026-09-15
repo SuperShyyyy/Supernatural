@@ -22,7 +22,8 @@ export function createNodeViews(): Record<string, NodeViewConstructor> {
     math_inline: (node: PMNode) => createMathView(node, false),
     math_block: (node: PMNode) => createMathView(node, true),
     diagram: (node: PMNode) => createDiagramView(node),
-    code_block: (node: PMNode) => createCodeBlockView(node),
+    code_block: (node: PMNode, view: EditorView, getPos: () => number | undefined) =>
+      createCodeBlockView(node, view, getPos),
     // TableView 提供列宽拖拽能力，配合 columnResizing() 插件使用
     table: (node: PMNode) => new TableView(node, TABLE_CELL_MIN_WIDTH),
   };

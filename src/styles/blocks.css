@@ -37,6 +37,30 @@
   opacity: 1;
 }
 
+/* 语言输入框：外观像普通文本，点击即可修改代码语言 */
+.md-codeblock__lang {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  inline-size: 7em;
+  min-inline-size: 0;
+  outline: none;
+  /* 顶部栏整体 user-select:none，这里要允许选中输入框文字 */
+  user-select: text;
+  cursor: text;
+}
+
+.md-codeblock__lang::placeholder {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.md-codeblock__lang:focus {
+  color: var(--text-color);
+}
+
 .md-codeblock__copy {
   padding: 0;
   border: 0;

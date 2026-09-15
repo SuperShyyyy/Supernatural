@@ -64,6 +64,15 @@ describe('代码块输入触发', () => {
     return params;
   }
 
+  function codeBlockText(editor: Editor): string {
+    let text = '';
+    editor.view.state.doc.descendants((node) => {
+      if (node.type.name === 'code_block') { text = node.textContent; return false; }
+      return true;
+    });
+    return text;
+  }
+
   // ---- 空格触发（输入规则）----
 
   it('空格触发：首行 ```java + 空格 → code_block(params=java)', () => {
@@ -83,7 +92,7 @@ describe('代码块输入触发', () => {
 
     expect(handled).toBe(true);
     expect(codeBlockParams(editor)).toBe('java');
-    const domLang = editor.view.dom.querySelector('.md-codeblock__lang')?.textContent;
+    const domLang = (editor.view.dom.querySelector('.md-codeblock__lang') as HTMLInputElement | null)?.value;
     expect(domLang).toBe('java');
     editor.destroy();
   });
@@ -98,20 +107,23 @@ describe('代码块输入触发', () => {
     expect(pressEnter(editor)).toBe(true);
     expect(firstCodeBlock(editor)).toBe(true);
     expect(codeBlockParams(editor)).toBe('python');
+    // 围栏文本不能残留成代码块内容
+    expect(codeBlockText(editor)).toBe('');
     const md = editor.getMarkdown();
     expect(md).toContain('```python');
     editor.destroy();
   });
 
-  it('回车触发：整行 ~~~bash 后按 Enter → code_block(params=bash)', () => {
+  it('回车触发：整行 ~~~bash 后按 Enter → code_block(params=bash) 且围栏文本被清除', () => {
     const editor = mountEditor('');
     editor.view.dispatch(editor.view.state.tr.insertText('~~~bash', 0).scrollIntoView());
     placeCursorAt(editor, firstParaContentEnd(editor));
 
     expect(pressEnter(editor)).toBe(true);
     expect(codeBlockParams(editor)).toBe('bash');
-    const md = editor.getMarkdown();
-    expect(md).toContain('~~~bash');
+    // 围栏文本不能残留成代码块内容（回归保护）
+    expect(codeBlockText(editor)).toBe('');
+    expect(editor.getMarkdown()).toContain('bash');
     editor.destroy();
   });
 
@@ -143,6 +155,47 @@ describe('代码块输入触发', () => {
     expect(md).toContain('print(1)');
     expect(md).toContain('print(2)');
     expect(firstCodeBlock(editor)).toBe(true);
+    editor.destroy();
+  });
+});
+
+describe('代码块语言修改与语法高亮', () => {
+  function mount(md: string): Editor {
+    const el = document.createElement('div');
+    document.body.append(el);
+    return createEditor({ mount: el, markdown: md });
+  }
+
+  function currentParams(editor: Editor): string {
+    let params = '';
+    editor.view.state.doc.descendants((node) => {
+      if (node.type.name === 'code_block') { params = String(node.attrs['params']); return false; }
+      return true;
+    });
+    return params;
+  }
+
+  it('修改语言输入框 → 更新 code_block.params', () => {
+    const editor = mount('```java\nint x = 1;\n```\n');
+    const input = editor.view.dom.querySelector('.md-codeblock__lang') as HTMLInputElement;
+    expect(input.value).toBe('java');
+
+    input.value = 'python';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(currentParams(editor)).toBe('python');
+    expect(editor.getMarkdown()).toContain('```python');
+    editor.destroy();
+  });
+
+  it('代码块语法高亮生效（挂类 + 产出 hljs span）', async () => {
+    const editor = mount('```java\npublic class A { int x = 1; }\n```\n');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const block = editor.view.dom.querySelector('.md-codeblock');
+    const pretty = editor.view.dom.querySelector('.md-codeblock__pretty');
+    expect(block?.classList.contains('md-codeblock--highlighted')).toBe(true);
+    expect(pretty?.innerHTML ?? '').toContain('hljs-keyword');
     editor.destroy();
   });
 });
