@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { startServer } from '../scripts/serve.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const APP_DIR = path.resolve(HERE, '../build/md-editer/app');
+const APP_DIR = path.resolve(HERE, '../build/supernatural/app');
 const RECENT_FILE = path.join(app.getPath('userData'), 'recent-files.json');
 
 const MARKDOWN_FILTERS = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'txt'] }];
@@ -183,12 +183,12 @@ async function buildTemplate() {
         appItem('载入示例文档', 'loadDemo'),
         { type: 'separator' },
         {
-          label: '关于 md-editer',
+          label: '关于 Supernatural',
           click: () =>
             dialog.showMessageBox({
               type: 'info',
-              title: 'md-editer',
-              message: 'md-editer',
+              title: 'Supernatural',
+              message: 'Supernatural',
               detail: 'Typora 风格的 Markdown 编辑器\nTypeScript + ProseMirror，无 Rust / WASM',
             }),
         },
