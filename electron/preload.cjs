@@ -3,9 +3,13 @@
  *
  * 渲染进程拿不到 require / fs / path，只能调用这里列出的能力 —— 这是 Electron
  * 安全基线，也让编辑器核心始终只依赖 FileSystemAdapter 抽象。
+ *
+ * 注意：Electron 的沙箱化 preload 只支持 CommonJS，不能用 ES module 的 import。
+ * 即使 package.json 声明了 "type": "module"，preload 也必须用 .cjs / require，
+ * 否则会报 "Cannot use import statement outside a module" 而整脚本加载失败，
+ * 导致 window.mdEditor 未暴露、isElectron() === false、双击 .md 打不开文件。
  */
-
-import { contextBridge, ipcRenderer } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('mdEditor', {
   isElectron: true,

@@ -246,6 +246,9 @@ export async function startApp(root: HTMLElement): Promise<void> {
     appActions[message.id]?.();
   });
   bridge?.onOpened((doc) => {
+    // 双击/命令行打开的文件由主进程直接投递，渲染层这里要把路径记到适配器上，
+    // 否则 Ctrl+S / 自动保存会走本地草稿而不是写回真实文件（且丢失绑定关系）。
+    if (fileAdapter instanceof ElectronAdapter) fileAdapter.setPath(doc.path);
     applySource({ name: doc.name, content: doc.content });
     rememberRecent();
   });

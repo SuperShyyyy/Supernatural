@@ -50,10 +50,23 @@ async function readFileByPath(filePath) {
   return { name: path.basename(filePath), path: filePath, content };
 }
 
-/** 从命令行参数里挑出第一个 Markdown 文件（.desktop 用 %U / %f 传进来的路径）。 */
+/** 从命令行参数里挑出第一个 Markdown 文件（.desktop 用 %F / %U 传进来的路径）。 */
 const MD_EXT = ['.md', '.markdown', '.mdown', '.txt'];
 function fileArgFromArgv(argv) {
-  return (argv || []).find((a) => MD_EXT.includes(path.extname(a || '').toLowerCase()));
+  for (const raw of argv || []) {
+    if (typeof raw !== 'string' || raw.length === 0) continue;
+    // 文件关联可能以 file:// URL 传入（.desktop 的 %U 且路径含中文会被 URL 编码），需还原成真实路径
+    let candidate = raw;
+    if (candidate.startsWith('file://')) {
+      try {
+        candidate = fileURLToPath(candidate);
+      } catch {
+        continue;
+      }
+    }
+    if (MD_EXT.includes(path.extname(candidate).toLowerCase())) return candidate;
+  }
+  return undefined;
 }
 
 /** 读取并加载某个文件：加入最近文件、通知渲染进程打开。 */
@@ -273,7 +286,7 @@ async function createWindow() {
     backgroundColor: '#ffffff',
     show: false,
     webPreferences: {
-      preload: path.join(HERE, 'preload.js'),
+      preload: path.join(HERE, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
