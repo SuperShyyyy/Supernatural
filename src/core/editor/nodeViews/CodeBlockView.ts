@@ -109,16 +109,41 @@ export function createCodeBlockView(
     view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, params: next }));
   }
 
+  /** 删除整个代码块（退回普通段落）。 */
+  function removeBlock(): void {
+    const pos = getPos();
+    if (typeof pos !== 'number') return;
+    const { state } = view;
+    const node = state.doc.nodeAt(pos);
+    if (node === null || node.type.name !== 'code_block') return;
+    const paragraph = state.schema.nodes['paragraph'];
+    if (paragraph === undefined) return;
+    view.dispatch(state.tr.setBlockType(pos, pos + node.nodeSize, paragraph));
+    view.focus();
+  }
+
   languageInput.addEventListener('change', commitLanguage);
   languageInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
       commitLanguage();
       languageInput.blur();
-    } else if (event.key === 'Escape') {
+      return;
+    }
+    if (event.key === 'Escape') {
       event.preventDefault();
       languageInput.value = String(current.attrs['params'] ?? '');
       languageInput.blur();
+      return;
+    }
+    // 输入框会阻止 keydown 冒泡（否则打字会被编辑器拦截），
+    // 因此删除键到不了 ProseMirror —— 这里显式处理"输入框已空且代码块也空"的删除，
+    // 否则焦点在语言框时按删除键，代码块删不掉、只剩顶部那一行。
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (languageInput.value.length === 0 && current.content.size === 0) {
+        event.preventDefault();
+        removeBlock();
+      }
     }
   });
   // 输入框内的事件不要冒泡给 ProseMirror / 编辑器

@@ -76,14 +76,23 @@ export function createEditor(options: EditorOptions): Editor {
    * 用户"没法在最后一行下面继续输入"。
    */
   const handleBlankAreaClick = (event: MouseEvent): void => {
-    const rect = view.dom.getBoundingClientRect();
-    if (event.clientY <= rect.bottom) return; // 点在内容区内，交回 ProseMirror 处理
+    // 以"最后一个块"的底边为界（而不是整个编辑区）：点在它下方即视为"想在末尾继续写"。
+    // 这样即使编辑区被撑满、点击仍落在 .editor-content 内，也能正确识别。
+    const lastChild = view.dom.lastElementChild;
+    const bottom =
+      lastChild instanceof HTMLElement
+        ? lastChild.getBoundingClientRect().bottom
+        : view.dom.getBoundingClientRect().bottom;
+    if (event.clientY <= bottom) return;
 
     const paragraph = schema.nodes['paragraph'];
     if (paragraph === undefined) return;
     const { state } = view;
     const last = state.doc.lastChild;
     if (last === null) return;
+
+    // 阻止默认行为，避免 ProseMirror 把光标放到最后一个块（代码块）内部
+    event.preventDefault();
 
     if (last.type.name === 'paragraph') {
       view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(state.doc.content.size))));
@@ -95,7 +104,8 @@ export function createEditor(options: EditorOptions): Editor {
     }
     view.focus();
   };
-  options.mount.addEventListener('mousedown', handleBlankAreaClick);
+  // 用捕获阶段：在 ProseMirror 处理之前拦下"下方空白"的点击
+  options.mount.addEventListener('mousedown', handleBlankAreaClick, true);
 
   return {
     view,
@@ -108,7 +118,7 @@ export function createEditor(options: EditorOptions): Editor {
     getStats: () => measure(view.state.doc),
     focus: () => view.focus(),
     destroy: () => {
-      options.mount.removeEventListener('mousedown', handleBlankAreaClick);
+      options.mount.removeEventListener('mousedown', handleBlankAreaClick, true);
       view.destroy();
     },
   };

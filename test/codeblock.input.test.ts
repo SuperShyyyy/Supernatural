@@ -292,6 +292,20 @@ describe('代码块内删除与缩进（Typora 手感）', () => {
     return names;
   }
 
+  it('焦点在语言输入框（且框内为空）时按 Delete → 也能删掉空代码块', () => {
+    const editor = mount('');
+    typeInto(editor.view, '~~~');
+    typeInto(editor.view, ' '); // 空代码块，params 为空
+    const input = editor.view.dom.querySelector('.md-codeblock__lang') as HTMLInputElement;
+    expect(input.value).toBe('');
+
+    input.focus();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', code: 'Delete', bubbles: true }));
+
+    expect(blockNames(editor)).toEqual(['paragraph']);
+    editor.destroy();
+  });
+
   it('代码块内按 Ctrl/Cmd+Enter → 在代码块后新建段落（可继续输入）', () => {
     const editor = mount('```java\nx\n```\n');
     let pos = 0;
